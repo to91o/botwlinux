@@ -120,7 +120,7 @@ class NSPTests(unittest.TestCase):
         self.assertIn('--suppresskeys', argv)
         if '-i' in argv:
             title = nsp.BASE_ID if Path(argv[-1]).read_bytes() == b'base' else nsp.UPDATE_ID
-            return type('Result', (), {'returncode': 0, 'stdout': f'Content Type: Program\nTitle ID: {title}\n'})()
+            return type('Result', (), {'returncode': 0, 'stderr': '', 'stdout': f'Content Type: Program\nTitle ID: {title}\n'})()
         self.assertIn('--basenca', argv)
         self.assertEqual(Path(argv[argv.index('--basenca') + 1]).read_bytes(), b'base')
         for option in ('--exefsdir', '--romfsdir'):
@@ -128,7 +128,7 @@ class NSPTests(unittest.TestCase):
         exefs = Path(argv[argv.index('--exefsdir') + 1])
         (exefs / 'main').write_bytes(b'synthetic NSO')
         (exefs / 'main.npdm').touch()
-        return type('Result', (), {'returncode': 0, 'stdout': ''})()
+        return type('Result', (), {'returncode': 0, 'stderr': '', 'stdout': ''})()
 
     def test_merge_protocol_and_private_cleanup(self):
         args = self.setup_import()
@@ -149,7 +149,7 @@ class NSPTests(unittest.TestCase):
 
     def test_reject_wrong_game_before_extraction(self):
         args = self.setup_import()
-        result = type('Result', (), {'returncode': 0, 'stdout': 'Content Type: Program\nTitle ID: 0000000000000000\n'})()
+        result = type('Result', (), {'returncode': 0, 'stderr': '', 'stdout': 'Content Type: Program\nTitle ID: 0000000000000000\n'})()
         with patch('nsp.shutil.which', return_value='/test/hactool'), patch('nsp.subprocess.run', return_value=result) as run:
             with self.assertRaises(nsp.ImportError):
                 nsp.import_nsp(*args)
@@ -163,6 +163,22 @@ class NSPTests(unittest.TestCase):
             with self.assertRaises(nsp.ImportError):
                 nsp.import_nsp(*args)
         self.assertEqual((args[-1] / 'keep').read_text(), 'existing')
+
+    def test_safe_extractor_diagnostics(self):
+        cases = [('Invalid NCA header! Are keys correct?', 1, 'header_key'),
+                 ('Unable to match rights id to titlekey. Update title.keys?', 0, 'title.keys'),
+                 ("unrecognized option '--suppresskeys'", 1, 'Update hactool'),
+                 ('Failed to read NCA header!', 1, 'complete'),
+                 ('error while loading shared libraries: example.so', 127, 'system library'),
+                 ('No space left on device', 1, 'disk space'),
+                 ('Unable to locate RomFS in base NCA!', 1, 'base NSP'),
+                 ('unknown failure', 9, 'exit code 9')]
+        for diagnostic, code, expected in cases:
+            with self.subTest(diagnostic=diagnostic):
+                message = nsp.extractor_error('key = secret-value', diagnostic, code)
+                self.assertIn(expected, message)
+                self.assertNotIn('secret-value', message)
+        self.assertIsNone(nsp.extractor_error('normal output', '', 0))
 
 
 if __name__ == '__main__':
