@@ -21,7 +21,7 @@ def archive(entries):
 
 def ticket():
     data = bytearray(0x140 + 0x180)
-    struct.pack_into('>I', data, 0, 0x10004)
+    data[:4] = bytes.fromhex('04000100')  # Switch RSA-2048/SHA-256 signature type
     data[0x180:0x190] = bytes.fromhex('12' * 16)
     data[0x2a0:0x2b0] = bytes.fromhex('34' * 16)
     return bytes(data)
@@ -88,6 +88,19 @@ class NSPTests(unittest.TestCase):
         path.write_bytes(b'short')
         with self.assertRaises(nsp.ImportError):
             nsp.ticket_key(path)
+
+    def test_switch_ticket_signature_encodings(self):
+        path = self.root / 'signature.tik'
+        for encoding, body in [('00000100', 0x240), ('01000100', 0x140),
+                               ('02000100', 0x80), ('03000100', 0x240),
+                               ('04000100', 0x140), ('05000100', 0x80)]:
+            with self.subTest(encoding=encoding):
+                data = bytearray(body + 0x180)
+                data[:4] = bytes.fromhex(encoding)
+                data[body + 0x40:body + 0x50] = bytes.fromhex('12' * 16)
+                data[body + 0x160:body + 0x170] = bytes.fromhex('34' * 16)
+                path.write_bytes(data)
+                self.assertEqual(nsp.ticket_key(path), ('34' * 16, '12' * 16))
 
     def setup_import(self):
         base, update, keys, output = (self.root / n for n in ('base.nsp', 'update.nsp', 'prod.keys', 'output'))
