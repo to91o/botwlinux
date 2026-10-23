@@ -34,6 +34,9 @@ tests. SDL >= 3.4 is required: this release uses SDL_LoadPNG despite the older
 minimum in docs/linux.md. No Proton is needed for this native executable.
 Vulkan headers >= 1.4.350 are required by the current renderer. The installer
 uses shaderc's pkg-config linker flags to handle Arch's shared-library name.
+Vulkan Memory Allocator is downloaded from its pinned upstream v3.3.0 archive,
+SHA-256 verified, and extracted under the ignored `build/arch-deps` directory.
+No `vulkan-memory-allocator` pacman package or AUR helper is required.
 
 In Configuration select the folder containing your extracted Breath of the Wild
 1.8.2 files: exefs (main, main.npdm, rtld, sdk, subsdk0) and the merged romfs.

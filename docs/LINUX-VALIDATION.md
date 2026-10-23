@@ -24,6 +24,10 @@ Passed:
   validation layers were unavailable; zero validation messages is not evidence
   of a validation-layer pass.
 - Syntax checks of Arch setup/launch scripts and the pipeline test shell script.
+- Arch installer correction: download and SHA-256 verification of the pinned
+  VMA 3.3.0 archive, a second cached run, and compilation of the Vulkan allocator
+  implementation against the resulting local header. This avoids the unavailable
+  `vulkan-memory-allocator` package reported on CachyOS.
 
 Changes beyond the uploaded source:
 
