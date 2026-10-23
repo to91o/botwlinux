@@ -172,6 +172,8 @@ class NSPTests(unittest.TestCase):
                  ('error while loading shared libraries: example.so', 127, 'system library'),
                  ('No space left on device', 1, 'disk space'),
                  ('Unable to locate RomFS in base NCA!', 1, 'base NSP'),
+                 ('Key (PRIVATE) must be 32 hex digits!', 1, 'invalid length'),
+                 ('Rights ID PRIVATE already has a corresponding titlekey!', 1, 'duplicate'),
                  ('unknown failure', 9, 'exit code 9')]
         for diagnostic, code, expected in cases:
             with self.subTest(diagnostic=diagnostic):
@@ -179,6 +181,18 @@ class NSPTests(unittest.TestCase):
                 self.assertIn(expected, message)
                 self.assertNotIn('secret-value', message)
         self.assertIsNone(nsp.extractor_error('normal output', '', 0))
+
+    def test_fallback_diagnostics_redact_keys(self):
+        secret = '1234567890abcdef1234567890abcdef'
+        message = nsp.extractor_error('', 'Failed to open /example/file!\n'
+                                      f'Error: {secret}\n'
+                                      f'Key (not-even-hex) must be valid\n'
+                                      '[WARN]: key value should stay private', 1)
+        self.assertIn('Failed to open /example/file!', message)
+        self.assertIn('[redacted]', message)
+        self.assertNotIn(secret, message)
+        self.assertNotIn('not-even-hex', message)
+        self.assertNotIn('stay private', message)
 
 
 if __name__ == '__main__':
