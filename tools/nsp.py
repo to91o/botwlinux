@@ -77,7 +77,8 @@ def ticket_key(path):
         data = stream.read(4096)
     if len(data) < 4:
         raise ImportError('Truncated NSP ticket.')
-    signature = struct.unpack_from('>I', data)[0]
+    # Switch tickets store this integer little-endian (RSA-2048/SHA-256: 04 00 01 00).
+    signature = struct.unpack_from('<I', data)[0]
     body = {0x10000: 0x240, 0x10001: 0x140, 0x10002: 0x80,
             0x10003: 0x240, 0x10004: 0x140, 0x10005: 0x80}.get(signature)
     if body is None or len(data) < body + 0x170:
