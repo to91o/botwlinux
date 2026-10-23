@@ -166,6 +166,8 @@ extern "C" bool launcher_config_key_held(void) { return (NSEvent.modifierFlags &
 // (runtime/romfs_build.c).
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static std::string g_src;           // the picked folder
+static std::string g_nsp_base, g_nsp_update, g_nsp_keys;
+static bool g_nsp_mode;
 static std::string g_job;           // current setup step / result for the status line
 static std::string g_job_hint;      // a failure: what to do about it (shown under it)
 static bool g_busy, g_job_failed;
@@ -188,7 +190,7 @@ static void set_failure(int k) {
     static const char *const hint[] = {
         "",
         "Choose the folder that holds the extracted game files (exefs and romfs).",
-        "Choose the folder that holds the extracted game files (exefs and romfs), not a game package.",
+        "Use Import NSP packages for a base and update NSP, or choose extracted game files (exefs and romfs).",
         "Make sure there's enough free space for a copy of the game files and try again.",
         "exefs/main must be the decrypted, extracted main module (an NSO file).",
         "Some files are missing. Choose the folder again; if it happens again, extract the game again.",
@@ -274,17 +276,39 @@ static bool build_game_code(void) {
 }
 
 static void *extract_thread(void *) {
-    std::string src;
+    std::string src, nsp_base, nsp_update, nsp_keys, nsp_work;
+    bool nsp_mode;
     pthread_mutex_lock(&g_lock);
     src = g_src;
+    nsp_mode = g_nsp_mode;
+    nsp_base = g_nsp_base, nsp_update = g_nsp_update, nsp_keys = g_nsp_keys;
     pthread_mutex_unlock(&g_lock);
     g_done = 0, g_total = 0, g_phase_base = 0, g_build_frac = -1, g_copy_skipped = false;
     std::string exefs, romfs;
     bool unusable = false;  // (game packages rather than its files)
-    if (src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
+    if (!nsp_mode && src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
         g_copy_skipped = true;
         if (!build_game_code()) goto done;
         goto check;
+    }
+    if (nsp_mode) {
+        if (nsp_base.empty() || nsp_update.empty() || nsp_keys.empty()) {
+            set_job("Choose the base NSP, the 1.8.2 update NSP and prod.keys.", true);
+            goto done;
+        }
+        char staging[1200], why[512] = "";
+        snprintf(staging, sizeof staging, "%s/.nsp-import-%llu", rt_data_root(), (unsigned long long)plat_now_ns());
+        if (mkdir(staging, 0700) != 0) {
+            set_job("Could not create the NSP import folder.", true);
+            goto done;
+        }
+        nsp_work = staging;
+        set_job("Decrypting and merging the NSP game files...");
+        if (!gamebuild_import_nsp(nsp_base.c_str(), nsp_update.c_str(), nsp_keys.c_str(), staging, why, sizeof why)) {
+            set_job("NSP import failed", true, why);
+            goto done;
+        }
+        src = nsp_work;
     }
     set_job("Looking for the game files...");
     find_game(src, 0, exefs, romfs, unusable);
@@ -332,6 +356,7 @@ check:
                          : why.find("1.8.2") != std::string::npos ? FAIL_NOT_182 : FAIL_MISSING);
     }
 done:
+    if (!nsp_work.empty()) plat_remove_tree(nsp_work.c_str());
     pthread_mutex_lock(&g_lock);
     g_busy = false;
     pthread_mutex_unlock(&g_lock);
@@ -343,6 +368,18 @@ static void SDLCALL picked(void *, const char *const *files, int) {
     if (!files || !files[0]) return;
     pthread_mutex_lock(&g_lock);
     g_src = files[0];
+    g_nsp_mode = false;
+    pthread_mutex_unlock(&g_lock);
+}
+
+enum { PICK_NSP_BASE, PICK_NSP_UPDATE, PICK_NSP_KEYS };
+static int g_pick_base = PICK_NSP_BASE, g_pick_update = PICK_NSP_UPDATE, g_pick_keys = PICK_NSP_KEYS;
+static void SDLCALL picked_nsp(void *kind, const char *const *files, int) {
+    if (!files || !files[0]) return;
+    pthread_mutex_lock(&g_lock);
+    int k = *(int *)kind;
+    (k == PICK_NSP_BASE ? g_nsp_base : k == PICK_NSP_UPDATE ? g_nsp_update : g_nsp_keys) = files[0];
+    g_nsp_mode = true;
     pthread_mutex_unlock(&g_lock);
 }
 
@@ -809,6 +846,7 @@ extern "C" void launcher_run(const char *root, int mode) {
         const char *pg = strchr(getenv("SAVAGEWIND_LAUNCHER_SHOT"), ':');
         if (pg && (!strncmp(pg + 1, "settings", 8) || !strcmp(pg + 1, "askdelete"))) page = SETTINGS, menu_tabs_focus(true);
         if (pg && !strcmp(pg + 1, "setup")) page = SETUP;
+        if (pg && !strcmp(pg + 1, "nsp")) page = SETUP, g_nsp_mode = true;
         if (pg && !strcmp(pg + 1, "main")) page = MAIN;
         if (pg && !strncmp(pg + 1, "fail", 4)) page = SETUP, set_failure(atoi(pg + 5));  // (the failure messages)
         if (pg && !strncmp(pg + 1, "settings", 8) && pg[9] == ':') g_tab_request_ext = atoi(pg + 10);  // settings:<tab>
@@ -820,6 +858,12 @@ extern "C" void launcher_run(const char *root, int mode) {
     const char *ap = getenv("SAVAGEWIND_LAUNCHER_AUTOPLAY");
     if (ap && status.empty() && !(runs && !strcmp(ap, "once"))) play = true;  // (test: PLAY at once)
     runs++;
+    // Test/automation inputs; the interactive picker uses the same setup path.
+    if (const char *base = getenv("SAVAGEWIND_LAUNCHER_NSP_BASE")) {
+        const char *update = getenv("SAVAGEWIND_LAUNCHER_NSP_UPDATE"), *keys = getenv("SAVAGEWIND_LAUNCHER_NSP_KEYS");
+        g_nsp_mode = true;
+        g_nsp_base = base, g_nsp_update = update ? update : "", g_nsp_keys = keys ? keys : "";
+    }
     if (const char *t = getenv("SAVAGEWIND_LAUNCHER_EXTRACT")) {  // (test) <folder>: set the game files up, log, exit
         g_src = t;
         g_busy = true;
@@ -1093,15 +1137,17 @@ extern "C" void launcher_run(const char *root, int mode) {
 
                 pthread_mutex_lock(&g_lock);
                 std::string src = g_src, job = g_job, job_hint = g_job_hint;
+                bool nsp_mode = g_nsp_mode;
+                std::string nsp_base = g_nsp_base, nsp_update = g_nsp_update, nsp_keys = g_nsp_keys;
                 bool failed = g_job_failed;
                 pthread_mutex_unlock(&g_lock);
                 bool ready = status.empty() && !busy;  // (set up: the window offers to delete them, or set them up again)
                 static double files_gb = -1;
                 // chosen: "Selected" with a green check (long paths ran over the label); the path is in the
                 // explanation, and choosing again opens the picker again
-                std::string src_v = tr(src.empty() ? "Choose..." : "Selected");
+                std::string src_v = tr(src.empty() || nsp_mode ? "Choose..." : "Selected");
                 auto check_left_of_value = [&](const std::string &v) {
-                    if (src.empty()) return;
+                    if (src.empty() || nsp_mode) return;
                     ImVec2 rb = ImGui::GetItemRectMax(), ra = ImGui::GetItemRectMin();
                     float fs = ImGui::GetFontSize(), vw = ImGui::CalcTextSize(v.c_str()).x;
                     float x = rb.x - 16 * sc - vw - fs * 0.95f, cy = (ra.y + rb.y) * 0.5f, u = fs * 0.62f;
@@ -1119,7 +1165,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                                       "needs to be done once and may take a while. Your own files aren't changed.");
                 if (!job.empty())
                     ex_d += std::string("\n\n") + tr(job.c_str()) + (job_hint.empty() ? "" : std::string(".\n") + tr(job_hint.c_str()));
-                std::string again_d = tr("Sets the game files up again from the folder chosen above, in place of Savage Wind's "
+                std::string again_d = tr("Sets the game files up again from the source chosen above, in place of Savage Wind's "
                                          "copy. With no folder chosen, builds the game code again from Savage Wind's copy. "
                                          "Saves and settings are kept.");
 
@@ -1162,11 +1208,36 @@ extern "C" void launcher_run(const char *root, int mode) {
                     if (opt_action("Game files folder", src_v.c_str(), src_d.c_str(), true))
                         SDL_ShowOpenFolderDialog(picked, NULL, win, NULL, false);
                     check_left_of_value(src_v);
+                    if (!ready) first_row();
+                    if (busy) opt_disable_next();
+                    if (opt_action("Import NSP packages", nsp_mode ? tr("Selected") : tr("Choose..."),
+                                   "Use your base game NSP, its 1.8.2 update NSP and your prod.keys. Requires hactool. "
+                                   "Your original files are kept. Choosing a game files folder switches back to folder setup.", true)) {
+                        pthread_mutex_lock(&g_lock);
+                        g_nsp_mode = nsp_mode = true;
+                        pthread_mutex_unlock(&g_lock);
+                    }
+                    if (nsp_mode) {
+                        static const SDL_DialogFileFilter nsp_filter[] = {{"Nintendo Switch package", "nsp"}};
+                        static const SDL_DialogFileFilter key_filter[] = {{"Console keys", "keys"}};
+                        if (busy) opt_disable_next();
+                        if (opt_action("Base game NSP", nsp_base.empty() ? tr("Choose...") : tr("Selected"),
+                                       nsp_base.empty() ? "Choose your Breath of the Wild base game NSP." : nsp_base.c_str(), true))
+                            SDL_ShowOpenFileDialog(picked_nsp, &g_pick_base, win, nsp_filter, 1, NULL, false);
+                        if (busy) opt_disable_next();
+                        if (opt_action("Update NSP (1.8.2)", nsp_update.empty() ? tr("Choose...") : tr("Selected"),
+                                       nsp_update.empty() ? "Choose the matching version 1.8.2 update NSP." : nsp_update.c_str(), true))
+                            SDL_ShowOpenFileDialog(picked_nsp, &g_pick_update, win, nsp_filter, 1, NULL, false);
+                        if (busy) opt_disable_next();
+                        if (opt_action("Console prod.keys", nsp_keys.empty() ? tr("Choose...") : tr("Selected"),
+                                       nsp_keys.empty() ? "Choose your prod.keys. If needed, put your title.keys beside it." : nsp_keys.c_str(), true))
+                            SDL_ShowOpenFileDialog(picked_nsp, &g_pick_keys, win, key_filter, 1, NULL, false);
+                    }
                     if (!ready) {
-                        first_row();
                         opt_section("Set up");
                     }
-                    if (busy || (src.empty() && !check_copied_files(g_root).empty())) opt_disable_next();
+                    if (busy || (nsp_mode ? (nsp_base.empty() || nsp_update.empty() || nsp_keys.empty())
+                                         : (src.empty() && !check_copied_files(g_root).empty()))) opt_disable_next();
                     if (opt_action("Set up game files", busy ? tr("Working...") : "", ready ? again_d.c_str() : ex_d.c_str(),
                                    true)) {
                         pthread_mutex_lock(&g_lock);

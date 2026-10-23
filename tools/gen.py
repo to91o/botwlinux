@@ -643,6 +643,9 @@ def generate(name, nso, base, outdir, opts):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'import-nsp':
+        import nsp
+        return nsp.main(sys.argv[2:])
     ap = argparse.ArgumentParser(usage=__doc__)
     ap.add_argument('name')  # a module (main, subsdk0..9, sdk), or layout / all
     ap.add_argument('input')  # its NSO; layout / all: the exefs folder

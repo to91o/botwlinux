@@ -29,9 +29,9 @@ its text and voices in any of its languages.
 > [!NOTE]
 > **No game files are included.** Savage Wind Recomp needs your own legally obtained copy of the game, updated to
 > **version 1.8.2**, dumped from **your own** Nintendo Switch. This project does not include, and will not provide,
-> game files, keys, firmware, dumping or decryption tools, or instructions on how to obtain any of them. Savage Wind
-> never decrypts anything: it only reads files you have already extracted yourself. The recompilation of the game
-> code happens locally, on your machine, from your files.
+> game files, keys, firmware or dumping tools. You can supply extracted game files, or import your own base and
+> update NSPs using an installed `hactool` and your own keys (see [NSP import](docs/NSP-IMPORT.md)).
+> Extraction and recompilation happen locally, on your machine, from your files.
 
 ## Getting started (Alpha 2, Windows)
 
