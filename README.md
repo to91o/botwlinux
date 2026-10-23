@@ -1,5 +1,12 @@
 # Savage Wind Recomp
 
+**Arch/Linux preview:** this fork adds a Breath of the Wild–inspired launcher with
+an original mountain panorama, a glowing eye seal, parchment trim and slate-blue
+controls. See [Arch setup](docs/ARCH.md) and [validation](docs/LINUX-VALIDATION.md).
+Gameplay on Linux still needs testing with your extracted game files.
+
+![Native Linux launcher preview](docs/images/botw-launcher.png)
+
 > [!IMPORTANT]
 > **This project is made almost entirely with AI.** Nearly all of the code, tooling, reverse engineering and
 > documentation here is written by an AI (Anthropic's Claude, through Claude Code), directed, tested and reviewed by

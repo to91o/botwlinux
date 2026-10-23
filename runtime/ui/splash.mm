@@ -1,7 +1,7 @@
 // The start screen's background (splash.h). The player's own picture when there is one (rt_user_splash: splash.jpg /
 // splash.png in the data folder, decoded with stb_image), shown filling the window; else Savage Wind's own art, drawn
-// here: an old forest at a sunlit clearing, the icon's plain sword (docs/icon/icon.svg) in a mossy stone, the grass
-// swaying, petals and fireflies. The menu sits on the left, so the clearing is on the right. The start screen lays its
+// here: layered highlands, ancient stonework, drifting motes and a luminous slate eye seal.
+// The menu sits on the left, so the panorama opens on the right. The start screen lays its
 // dark banners over either, which keep its text readable.
 #ifdef __APPLE__
 #import <Metal/Metal.h>
@@ -391,8 +391,87 @@ static void forest_art(ImDrawList *dl, ImVec2 sz, float t) {
     dl->AddRectFilledMultiColor(ImVec2(0, H * 0.82f), sz, z, z, v, v);
 }
 
+// A hand-drawn panorama: layered highlands, ancient stonework and a luminous
+// slate seal. All geometry is original; no game textures are bundled.
+static void wild_landscape(ImDrawList *dl, ImVec2 sz, float t) {
+    const float W = sz.x, H = sz.y, s = H / 720.0f;
+    dl->AddRectFilledMultiColor(ImVec2(0, 0), sz, rgba(0x102e40), rgba(0x183d4c),
+                                rgba(0xbba87b), rgba(0x6b8e89));
+    glow(dl, ImVec2(W * 0.78f, H * 0.37f), H * 0.53f,
+         rgba(0xf4e4b5, 0.28f), rgba(0x77cbd4, 0.08f), 0.4f);
+    // Thin, wind-stretched clouds.
+    for (int i = 0; i < 9; ++i) {
+        float x = W * (0.15f + hash01(i + 17) * 0.85f), y = H * (0.12f + hash01(i + 52) * 0.30f);
+        float w = W * (0.04f + hash01(i + 71) * 0.12f);
+        dl->AddLine(ImVec2(x - w, y), ImVec2(x + w, y - 7 * s), rgba(0xe3ebd4, 0.12f), 2 * s);
+    }
+    const ImU32 mountain[] = {rgba(0x5c8286), rgba(0x426f73), rgba(0x294e56), rgba(0x173940)};
+    for (int layer = 0; layer < 4; ++layer) {
+        std::vector<ImVec2> ridge;
+        for (int i = 0; i <= 24; ++i) {
+            float x = W * i / 24.0f;
+            float peak = 0.08f * sinf(i * 0.73f + layer * 1.8f) + 0.055f * hash01(i + layer * 31);
+            ridge.emplace_back(x, H * (0.48f + layer * 0.095f - peak));
+        }
+        ridge.emplace_back(W, H); ridge.emplace_back(0, H);
+        fill(dl, ridge.data(), (int)ridge.size(), mountain[layer]);
+    }
+    // Distant snow peak and its sunlit face.
+    ImVec2 peak[] = {ImVec2(W * 0.47f, H * 0.46f), ImVec2(W * 0.57f, H * 0.25f), ImVec2(W * 0.69f, H * 0.48f)};
+    fill(dl, peak, 3, rgba(0x809c98));
+    dl->AddTriangleFilled(peak[1], ImVec2(W * 0.545f, H * 0.32f), ImVec2(W * 0.60f, H * 0.31f), rgba(0xd7d6bd));
+    // Weathered watchtower, silhouetted on the far ridge.
+    float tx = W * 0.91f, ty = H * 0.47f;
+    dl->AddRectFilled(ImVec2(tx - 10 * s, ty), ImVec2(tx + 10 * s, H * 0.68f), rgba(0x244f59));
+    dl->AddRectFilled(ImVec2(tx - 19 * s, ty - 8 * s), ImVec2(tx + 19 * s, ty + 3 * s), rgba(0x376671));
+    for (int i = -1; i <= 1; ++i)
+        dl->AddRectFilled(ImVec2(tx + i * 13 * s - 3 * s, ty - 18 * s), ImVec2(tx + i * 13 * s + 3 * s, ty - 8 * s), rgba(0x376671));
+    dl->AddLine(ImVec2(tx, ty + 14 * s), ImVec2(tx, H * 0.63f), rgba(0x6ad4e4, 0.72f), 2 * s);
+    // Ancient circular eye seal, suspended in a subtle blue halo.
+    ImVec2 c(W * 0.79f, H * 0.34f);
+    float r = 72 * s, pulse = 0.85f + 0.15f * sinf(t * 0.7f);
+    glow(dl, c, r * 2.0f, rgba(0x54d9f0, 0.12f), rgba(0x54d9f0, 0.03f), 0.5f);
+    ImU32 ink = rgba(0xa4e5e9, 0.64f * pulse);
+    dl->AddCircle(c, r, rgba(0x8cd6dd, 0.30f), 96, s);
+    dl->AddCircle(c, r * 1.12f, rgba(0xd2bc83, 0.32f), 96, s);
+    for (int i = 0; i < 24; ++i) {
+        float a = i * 6.2831853f / 24;
+        dl->AddLine(ImVec2(c.x + cosf(a) * r * 1.12f, c.y + sinf(a) * r * 1.12f),
+                    ImVec2(c.x + cosf(a) * r * 1.19f, c.y + sinf(a) * r * 1.19f), ink, s);
+    }
+    dl->AddBezierCubic(ImVec2(c.x - r * 0.66f, c.y), ImVec2(c.x - r * 0.25f, c.y - r * 0.55f),
+                       ImVec2(c.x + r * 0.25f, c.y - r * 0.55f), ImVec2(c.x + r * 0.66f, c.y), ink, 2 * s);
+    dl->AddBezierCubic(ImVec2(c.x - r * 0.66f, c.y), ImVec2(c.x - r * 0.25f, c.y + r * 0.45f),
+                       ImVec2(c.x + r * 0.25f, c.y + r * 0.45f), ImVec2(c.x + r * 0.66f, c.y), ink, 2 * s);
+    dl->AddCircle(c, r * 0.20f, ink, 32, 2 * s);
+    dl->AddCircleFilled(c, r * 0.07f, ink);
+    for (int i = -1; i <= 1; ++i)
+        dl->AddTriangleFilled(ImVec2(c.x + i * r * 0.38f - 4 * s, c.y - r * 0.42f),
+            ImVec2(c.x + i * r * 0.38f + 4 * s, c.y - r * 0.42f), ImVec2(c.x + i * r * 0.38f, c.y - r * 0.65f), ink);
+    dl->AddQuadFilled(ImVec2(c.x, c.y + r * 0.36f), ImVec2(c.x + 7 * s, c.y + r * 0.58f),
+                      ImVec2(c.x, c.y + r * 0.76f), ImVec2(c.x - 7 * s, c.y + r * 0.58f), ink);
+    // Foreground grass and scattered stone markers, with a little wind.
+    for (int i = 0; i < 140; ++i) {
+        float x = hash01(i + 120) * W, y = H * (0.86f + 0.16f * hash01(i + 300));
+        float h = (10 + hash01(i + 430) * 30) * s;
+        blade(dl, x, y, 2 * s, h, 5 * s * sinf(t + i), rgba(0x102e32), rgba(0x487770));
+    }
+    for (int i = 0; i < 5; ++i) {
+        float x = W * (0.65f + i * 0.065f), y = H * (0.88f + 0.025f * sinf(i * 2));
+        dl->AddRectFilled(ImVec2(x, y - (20 + i % 3 * 8) * s), ImVec2(x + 9 * s, y), rgba(0x132c32));
+        dl->AddLine(ImVec2(x + 4 * s, y - 15 * s), ImVec2(x + 4 * s, y - 6 * s), rgba(0x76c8c7, 0.55f), s);
+    }
+    // Fine parchment frame, kept clear of the interactive panels.
+    ImU32 trim = rgba(0xd1be8f, 0.40f);
+    dl->AddRect(ImVec2(18 * s, 18 * s), ImVec2(W - 18 * s, H - 18 * s), trim, 0, 0, s);
+    for (int i = 0; i < 30; ++i) {
+        ImVec2 p(W * hash01(i + 700), H * fmodf(hash01(i + 830) - t * 0.008f + 10, 1));
+        dl->AddCircleFilled(p, (i % 3 == 0 ? 1.5f : 0.8f) * s, rgba(0xbfe9dd, 0.35f));
+    }
+}
+
 void splash_draw(ImDrawList *dl, ImVec2 sz, float t) {
-    if (!g_tex) { forest_art(dl, sz, t); return; }
+    if (!g_tex) { wild_landscape(dl, sz, t); return; }
     // the picture fills the window (cropped to its shape, centred)
     float ia = (float)g_tex_w / g_tex_h, da = sz.x / sz.y;
     ImVec2 uv0(0, 0), uv1(1, 1);

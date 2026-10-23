@@ -16,7 +16,7 @@ static float g_scale = 1;
 static std::string g_desc_hover, g_desc_focus, g_desc_shown;  // this frame's hovered / selected row, and the last shown
 static std::string g_desc_first;  // the page's first row (shown until a row is selected or hovered)
 
-static const ImU32 kGold = IM_COL32(236, 194, 84, 255);
+static const ImU32 kGold = IM_COL32(102, 211, 235, 255);
 static bool g_next_disabled;
 void opt_disable_next(void) { g_next_disabled = true; }
 static bool g_value_dim;  // the next row's value is shown greyed (a value that can't be picked yet)
@@ -44,7 +44,7 @@ void opt_begin(const char *id, float scale) {
 void opt_section(const char *title) {
     std::string t = tr_upper(tr(title));
     if (ImGui::GetCursorPosY() > ImGui::GetStyle().WindowPadding.y + 1) ImGui::Dummy(ImVec2(0, 10 * g_scale));
-    ImGui::TextColored(ImVec4(0.55f, 0.58f, 0.52f, 1), "%s", t.c_str());
+    ImGui::TextColored(ImVec4(0.71f, 0.68f, 0.53f, 1), "%s", t.c_str());
 }
 
 // One row: draws it, handles A / click and left / right while selected. Returns 2 (A / click), -1 / +1 (left / right) or 0.
@@ -91,7 +91,7 @@ static int row(const char *label, const std::string &value, bool changed, const 
     if (g_desc_first.empty() && desc) g_desc_first = desc;
 
     ImDrawList *dl = ImGui::GetWindowDrawList();
-    float r = 9 * g_scale, pad = 16 * g_scale, fs = ImGui::GetFontSize();
+    float r = 2 * g_scale, pad = 16 * g_scale, fs = ImGui::GetFontSize();
     dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), hov || foc ? IM_COL32(255, 255, 255, 22) : IM_COL32(0, 0, 0, 40), r);
     dl->AddRect(p, ImVec2(p.x + w, p.y + h), hov || foc ? (off ? IM_COL32(236, 194, 84, 120) : kGold)
                                                         : IM_COL32(255, 255, 255, off ? 18 : 38), r, 0,

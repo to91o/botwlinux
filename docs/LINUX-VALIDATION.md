@@ -44,3 +44,13 @@ warnings. This work does not certify full-game functionality of the alpha.
 
 Next required input: extracted Breath of the Wild 1.8.2 exefs and merged romfs
 available on a target PC, followed by the functional checks in docs/ARCH.md.
+
+## Launcher theme update
+
+The native runtime was rebuilt after the UI changes. The main configuration,
+game-file setup and settings screens were rendered and inspected on software
+Vulkan at 1280x720; game-file setup was also inspected at 800x600. This verifies
+the new launcher layout and rendering. The shared in-game settings palette and
+frame compile, but their appearance over real gameplay is not yet verified.
+The panorama and ornaments use original vector geometry. Existing user splash
+images still take precedence. No game assets are distributed with the theme.

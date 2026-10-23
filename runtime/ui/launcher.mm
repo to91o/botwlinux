@@ -31,6 +31,7 @@
 #include "option_rows.h"
 #include "osk.h"
 #include "splash.h"
+#include "wild_theme.h"
 #ifdef __APPLE__
 #include "imgui_impl_metal.h"
 #else
@@ -501,12 +502,12 @@ static bool menu_item(const char *label, bool enabled, bool *hovered = NULL, con
     bool hot = ImGui::IsItemFocused() || ImGui::IsItemHovered();
     ImGui::PopID();
     if (hovered) *hovered = hot;
-    ImU32 col = !enabled ? IM_COL32(170, 175, 200, 140) : hot ? IM_COL32(255, 214, 64, 255) : IM_COL32(250, 250, 255, 255);
+    ImU32 col = !enabled ? IM_COL32(170, 175, 200, 140) : hot ? IM_COL32(112, 224, 247, 255) : IM_COL32(250, 250, 255, 255);
     ImDrawList *dl = ImGui::GetWindowDrawList();
     if (hot && enabled) {  // a shadow band behind the item (like the version corner's), feathered, with a warm glow
         float x0 = ImGui::GetWindowPos().x, x1 = at.x + sz.x * 0.75f, x2 = at.x + sz.x + sz.y * 3.5f;
         float f = sz.y * 0.22f, y0 = at.y - f * 0.4f, y1 = y0 + f, y3 = at.y + sz.y + f * 0.2f, y2 = y3 - f;
-        ImU32 c = IM_COL32(6, 10, 34, 150), g = IM_COL32(255, 190, 80, 34), n = IM_COL32(6, 10, 34, 0), ng = IM_COL32(255, 190, 80, 0);
+        ImU32 c = IM_COL32(7, 20, 26, 150), g = IM_COL32(255, 190, 80, 34), n = IM_COL32(7, 20, 26, 0), ng = IM_COL32(255, 190, 80, 0);
         for (int pass = 0; pass < 2; pass++) {  // dark band, then the glow over it
             ImU32 a = pass ? g : c, z = pass ? ng : n;
             dl->AddRectFilledMultiColor(ImVec2(x0, y1), ImVec2(x1, y2), a, a, a, a);
@@ -517,7 +518,7 @@ static bool menu_item(const char *label, bool enabled, bool *hovered = NULL, con
             dl->AddRectFilledMultiColor(ImVec2(x1, y2), ImVec2(x2, y3), a, z, z, z);
         }
     }
-    ImU32 col_b = hot && enabled ? IM_COL32(255, 160, 50, 255) : col;
+    ImU32 col_b = hot && enabled ? IM_COL32(66, 170, 209, 255) : col;
     if (split && enabled) {
         std::string head(label, split - label);
         text_fx(dl, ImGui::GetFont(), ImGui::GetFontSize(), at, col, col_b, head.c_str(), sz.y * 0.05f);
@@ -732,6 +733,14 @@ static void launcher_fonts(void) {
         g_font_title = add(p, 92 * (fira ? 1.6f : 1), latin);
     }
     if (!g_font_menu) g_font_small = g_font_menu = g_font_title = io.Fonts->AddFontDefault();
+    // A bookish title face; keep menu glyph coverage and the existing fallback.
+    const char *title_faces[] = {"/usr/share/fonts/TTF/DejaVuSerif.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+        "/System/Library/Fonts/Supplemental/Georgia.ttf", "C:/Windows/Fonts/georgia.ttf"};
+    for (const char *p : title_faces) {
+        if (!file_exists(p)) continue;
+        if (ImFont *f = add(p, 112, latin)) { g_font_title = f; break; }
+    }
 }
 
 extern "C" void vk_imgui_fonts_changed(void);  // (runtime/nvn/vulkan/imgui_glue.cpp)
@@ -772,11 +781,7 @@ extern "C" void launcher_run(const char *root, int mode) {
     // its context, so load them again (a stale pointer here aborted in PushFont - user, 0.1 RC)
     launcher_fonts();
     ImGuiStyle &st = ImGui::GetStyle();
-    st.Colors[ImGuiCol_Header] = ImVec4(0, 0, 0, 0);
-    st.Colors[ImGuiCol_HeaderHovered] = ImVec4(1, 1, 1, 0.08f);
-    st.Colors[ImGuiCol_HeaderActive] = ImVec4(1, 1, 1, 0.14f);
-    st.Colors[ImGuiCol_NavCursor] = ImVec4(0.95f, 0.78f, 0.35f, 1);
-    st.FrameRounding = st.WindowRounding = 10;
+    wild_theme_style();
 #ifdef __APPLE__
     ImGui_ImplSDL3_InitForMetal(win);
     ImGui_ImplMetal_Init(dev);
@@ -804,6 +809,7 @@ extern "C" void launcher_run(const char *root, int mode) {
         const char *pg = strchr(getenv("SAVAGEWIND_LAUNCHER_SHOT"), ':');
         if (pg && (!strncmp(pg + 1, "settings", 8) || !strcmp(pg + 1, "askdelete"))) page = SETTINGS, menu_tabs_focus(true);
         if (pg && !strcmp(pg + 1, "setup")) page = SETUP;
+        if (pg && !strcmp(pg + 1, "main")) page = MAIN;
         if (pg && !strncmp(pg + 1, "fail", 4)) page = SETUP, set_failure(atoi(pg + 5));  // (the failure messages)
         if (pg && !strncmp(pg + 1, "settings", 8) && pg[9] == ':') g_tab_request_ext = atoi(pg + 10);  // settings:<tab>
         if (pg && !strcmp(pg + 1, "delete")) page = SETUP, g_confirm_delete = true;
@@ -901,11 +907,11 @@ extern "C" void launcher_run(const char *root, int mode) {
             {  // a shadow banner fading in from the left behind the menu, and one from the right behind the version
                 const float stops[][2] = {{0.0f, 225}, {0.3f, 215}, {0.44f, 165}, {0.55f, 95}, {0.64f, 35}, {0.74f, 0}};
                 for (int i = 0; i + 1 < (int)(sizeof stops / sizeof stops[0]); i++) {
-                    ImU32 a = IM_COL32(6, 10, 34, (int)stops[i][1]), b = IM_COL32(6, 10, 34, (int)stops[i + 1][1]);
+                    ImU32 a = IM_COL32(7, 20, 26, (int)stops[i][1]), b = IM_COL32(7, 20, 26, (int)stops[i + 1][1]);
                     bg->AddRectFilledMultiColor(ImVec2(ds.x * stops[i][0], 0), ImVec2(ds.x * stops[i + 1][0], ds.y), a, b, b, a);
                 }
                 float y0 = ds.y - 190 * s, y1 = ds.y - 135 * s, y2 = ds.y - 40 * s, y3 = ds.y, x0r = ds.x * 0.5f;
-                ImU32 c0 = IM_COL32(6, 10, 34, 0), c1 = IM_COL32(6, 10, 34, 235);
+                ImU32 c0 = IM_COL32(7, 20, 26, 0), c1 = IM_COL32(7, 20, 26, 235);
                 bg->AddRectFilledMultiColor(ImVec2(x0r, y0), ImVec2(ds.x, y1), c0, c0, c1, c0);  // (feathered top)
                 bg->AddRectFilledMultiColor(ImVec2(x0r, y1), ImVec2(ds.x, y2), c0, c1, c1, c0);
                 bg->AddRectFilledMultiColor(ImVec2(x0r, y2), ImVec2(ds.x, y3), c0, c1, c0, c0);  // (feathered bottom)
@@ -921,11 +927,13 @@ extern "C" void launcher_run(const char *root, int mode) {
             float x0 = 90 * s;
             ImGui::SetCursorPos(ImVec2(x0, 120 * s));
             ImGui::PushFont(g_font_title);
-            if (page == MAIN) {  // gold to orange, shadowed (not behind the Settings / Game Files windows)
-                const char *t = "Savage Wind";
+            if (page == MAIN) {  // parchment title, above the slate-blue navigation
+                const char *t = "SAVAGE WIND";
                 ImVec2 p = ImGui::GetCursorScreenPos();
-                text_fx(ImGui::GetWindowDrawList(), ImGui::GetFont(), ImGui::GetFontSize(), p, IM_COL32(255, 232, 120, 255),
-                        IM_COL32(255, 138, 48, 255), t, 3 * s);
+                ImGui::GetWindowDrawList()->AddText(g_font_small, 17 * s, ImVec2(p.x + 3 * s, p.y - 27 * s),
+                    IM_COL32(152, 202, 202, 255), "B R E A T H   O F   T H E   W I L D");
+                text_fx(ImGui::GetWindowDrawList(), ImGui::GetFont(), ImGui::GetFontSize(), p, IM_COL32(246, 237, 211, 255),
+                        IM_COL32(188, 170, 126, 255), t, 3 * s);
                 ImVec2 ts = ImGui::CalcTextSize(t);
                 ImGui::Dummy(ts);
                 // and what this screen is, under it in the ice blue of the art
@@ -995,10 +1003,11 @@ extern "C" void launcher_run(const char *root, int mode) {
                                                           ImGui::GetWindowPos().y + ds.y), IM_COL32(0, 0, 0, 110));
                 ImVec2 wp = ImGui::GetWindowPos();
                 ImGui::SetCursorScreenPos(ImVec2(wp.x + (ds.x - w) * 0.5f, wp.y + (ds.y - h) * 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.06f, 0.09f, 0.08f, 0.96f));
-                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 14 * sc);
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.025f, 0.065f, 0.085f, 0.97f));
+                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 3 * sc);
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(28 * sc, 24 * sc));
                 ImGui::BeginChild("##settings", ImVec2(w, h), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NavFlattened);
+                wild_panel_frame(sc);
                 ImGui::PopStyleVar(2);
                 ImGui::PopStyleColor();
                 ImGui::PushFont(g_font_small);
@@ -1044,10 +1053,11 @@ extern "C" void launcher_run(const char *root, int mode) {
                                                           ImGui::GetWindowPos().y + ds.y), IM_COL32(0, 0, 0, 50));
                 ImVec2 wp = ImGui::GetWindowPos();
                 ImGui::SetCursorScreenPos(ImVec2(wp.x + fmaxf(18 * sc, fminf(ds.x * 0.05f, x0)), wp.y + (ds.y - h) * 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.05f, 0.08f, 0.10f, 0.93f));
-                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 14 * sc);
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.025f, 0.065f, 0.085f, 0.97f));
+                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 3 * sc);
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(28 * sc, 24 * sc));
                 ImGui::BeginChild("##setup", ImVec2(w, h), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NavFlattened);
+                wild_panel_frame(sc);
                 ImGui::PopStyleVar(2);
                 ImGui::PopStyleColor();
                 bool welcome = g_setup_only && status == "No game files";
