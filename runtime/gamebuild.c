@@ -34,14 +34,19 @@ static pthread_mutex_t g_plock = PTHREAD_MUTEX_INITIALIZER;
 static PlatProc g_procs[MAX_PROCS];
 static int g_nprocs;
 static bool g_quitting;
+static char g_import_work[1200];  // owned NSP staging folder; remove after killing its extractor
 
 static void end_all(void) {
     pthread_mutex_lock(&g_plock);
     g_quitting = true;
     for (int i = 0; i < g_nprocs; i++) plat_proc_kill(g_procs[i]);
     g_nprocs = 0;
+    if (g_import_work[0]) plat_remove_tree(g_import_work);
     pthread_mutex_unlock(&g_plock);
 }
+
+static pthread_once_t g_exit_once = PTHREAD_ONCE_INIT;
+static void register_exit(void) { atexit(end_all); }
 
 static PlatProc spawn(char **argv, const char *log) {
     pthread_mutex_lock(&g_plock);
@@ -77,6 +82,36 @@ static int wait_for(PlatProc p) {
     int r;
     while ((r = finished(p)) < 0) sleep_ms(20);
     return r;
+}
+
+bool gamebuild_import_nsp(const char *base, const char *update, const char *keys,
+                          const char *output, char *why, size_t why_size) {
+    char gen[1100], script[1100] = "", log[1100];
+    if (!rt_resource("swgen" SEP "swgen" PLAT_EXE_SUFFIX, NULL, gen, sizeof gen) &&
+        !(rt_resource(NULL, "tools/" PLAT_VENV_PYTHON, gen, sizeof gen) &&
+          rt_resource(NULL, "tools/gen.py", script, sizeof script))) {
+        snprintf(why, why_size, "The NSP importer is missing from this copy of Savage Wind.");
+        return false;
+    }
+    snprintf(log, sizeof log, "%s" SEP "nsp-import.log", rt_data_root());
+    const char *argv[16];
+    int n = 0;
+    argv[n++] = gen;
+    if (script[0]) argv[n++] = script;
+    argv[n++] = "import-nsp";
+    argv[n++] = "--base"; argv[n++] = base;
+    argv[n++] = "--update"; argv[n++] = update;
+    argv[n++] = "--keys"; argv[n++] = keys;
+    argv[n++] = "--output"; argv[n++] = output;
+    argv[n] = NULL;
+    pthread_once(&g_exit_once, register_exit);
+    pthread_mutex_lock(&g_plock);
+    snprintf(g_import_work, sizeof g_import_work, "%s", output);
+    pthread_mutex_unlock(&g_plock);
+    PlatProc p = spawn((char **)argv, log);
+    if (p && wait_for(p) == 0) return true;
+    snprintf(why, why_size, "Check hactool, your keys and the base/update NSPs. See nsp-import.log in the data folder.");
+    return false;
 }
 
 // ------------------------------------------------------------------ argument lists
@@ -288,8 +323,7 @@ static PlatProc start_compile(const Tools *t, const Unit *u) {
 // ------------------------------------------------------------------ the build
 bool gamebuild_run(const char *game_dir, const GameBuildOpts *o, char *why, size_t why_size) {
     uint64_t t0 = plat_now_ns();
-    static bool registered;
-    if (!registered) registered = true, atexit(end_all);
+    pthread_once(&g_exit_once, register_exit);
     Tools t;
     if (!find_tools(&t)) {
         snprintf(why, why_size, "the game code builder is missing from this copy of Savage Wind");

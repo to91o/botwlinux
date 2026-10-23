@@ -1,5 +1,8 @@
 # Arch Linux: native build and Proton fallback
 
+The launcher also supports [base + update NSP import](NSP-IMPORT.md) using
+an installed `hactool` and your own keys; extracted-folder setup remains available.
+
 This is SavageWind 0.2.0-alpha.2, including its existing Linux Vulkan backend.
 It is an alpha: building the launcher does not establish full-game correctness.
 The upstream README reports that only the opening and Great Plateau have been

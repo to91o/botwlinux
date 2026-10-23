@@ -19,6 +19,9 @@ typedef struct {
 bool gamebuild_run(const char *game_dir, const GameBuildOpts *opts, char *why, size_t why_size);
 // The generator and the compiler are there (shipped builds; a source checkout with tools/venv and clang).
 bool gamebuild_available(void);
+// Import into an existing empty staging folder. Tracks/kills the child on exit like the compiler.
+bool gamebuild_import_nsp(const char *base, const char *update, const char *keys,
+                          const char *output, char *why, size_t why_size);
 
 #ifdef __cplusplus
 }
