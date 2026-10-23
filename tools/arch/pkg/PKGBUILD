@@ -1,0 +1,28 @@
+# Arch package of the Savage Wind launcher, from the release folder that `make appimage`
+# also builds (build/linux/x86_64/AppDir, packed as savagewind-<ver>-linux-x86_64.tar.gz).
+# No AppImage, no FUSE. No game files or game code: the launcher builds those from your own files.
+pkgname=savagewind-bin
+pkgver=0.2.0alpha2
+_ver=0.2.0-alpha.2
+pkgrel=1
+pkgdesc='Savage Wind Recomp launcher (bring your own game files)'
+arch=('x86_64')
+url='https://github.com/to91o/botwlinux'
+license=('MIT')
+depends=('glibc' 'gcc-libs' 'vulkan-icd-loader' 'hicolor-icon-theme')
+optdepends=('vulkan-radeon: AMD GPUs' 'vulkan-intel: Intel GPUs' 'nvidia-utils: NVIDIA GPUs'
+            'xdg-desktop-portal: game-folder picker (plus your desktop portal backend)'
+            'zenity: game-folder picker fallback')
+options=('!strip' '!debug')
+source=("savagewind-${_ver}-linux-x86_64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    local src="savagewind-${_ver}-linux-x86_64"
+    install -d "$pkgdir/opt/savagewind" "$pkgdir/usr/bin"
+    cp -a "$src/bin" "$src/lib" "$src/savagewind" "$pkgdir/opt/savagewind/"
+    ln -s /opt/savagewind/savagewind "$pkgdir/usr/bin/savagewind"
+    install -Dm644 "$src/savagewind.desktop" "$pkgdir/usr/share/applications/savagewind.desktop"
+    install -Dm644 "$src/bin/icon.png" "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/savagewind.png"
+    install -Dm644 "$src/bin/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

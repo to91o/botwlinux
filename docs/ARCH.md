@@ -5,22 +5,31 @@ It is an alpha: building the launcher does not establish full-game correctness.
 The upstream README reports that only the opening and Great Plateau have been
 tested on Windows, and Linux gameplay for this game is untested.
 
-## AppImage (single executable)
+## Prebuilt launcher (no AppImage, no FUSE)
 
-`Savage_Wind-0.2.0-alpha.2-x86_64.AppImage` is the launcher as one file. It
-bundles SDL3, FFmpeg, shaderc, the frozen game-code generator (`swgen`) and Zig,
-so game-file setup needs no Python, clang or source checkout. Only glibc,
-libstdc++, the Vulkan loader and your GPU driver come from the system:
+`savagewind-0.2.0-alpha.2-linux-x86_64.tar.gz` is the launcher with everything
+it needs next to it: SDL3, FFmpeg, shaderc, the frozen game-code generator
+(`swgen`) and Zig. Game-file setup needs no Python, clang or source checkout.
+Only glibc, libstdc++, the Vulkan loader and your GPU driver come from the system.
+
+As an Arch package (put the tar.gz next to `tools/arch/pkg/PKGBUILD`):
 
 ```sh
-sudo pacman -S --needed fuse3 vulkan-icd-loader vulkan-radeon   # or vulkan-intel / nvidia-utils
-chmod +x Savage_Wind-0.2.0-alpha.2-x86_64.AppImage
-./Savage_Wind-0.2.0-alpha.2-x86_64.AppImage            # first run: game-file setup
-./Savage_Wind-0.2.0-alpha.2-x86_64.AppImage --config   # configuration screen
+cd tools/arch/pkg && makepkg -si      # installs /opt/savagewind and the savagewind command
+savagewind                            # first run: game-file setup
+savagewind --config                   # configuration screen (also in the app menu)
 ```
 
-Build it yourself with `make appimage` (needs podman; it builds in Ubuntu 22.04
-containers so the result runs on glibc 2.35+).
+Or without installing: `tar xzf savagewind-*-linux-x86_64.tar.gz` and run
+`./savagewind-0.2.0-alpha.2-linux-x86_64/savagewind`.
+
+Install your GPU's Vulkan driver (`vulkan-radeon`, `vulkan-intel` or
+`nvidia-utils`). The "Choose..." folder picker uses xdg-desktop-portal (KDE and
+GNOME have it) or falls back to `zenity`; on a bare window manager install one.
+
+The tar.gz is `build/linux/x86_64/AppDir` from `make appimage` (podman, Ubuntu
+22.04 containers, runs on glibc 2.35+) with `usr/` flattened, plus a
+`savagewind` start script.
 
 ## Native Linux (preferred)
 

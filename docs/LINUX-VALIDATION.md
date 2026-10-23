@@ -71,3 +71,11 @@ import had dropped the executable bit from every tools script.
 
 Not verified: setup with real game files, gameplay, hardware GPUs, FUSE mount
 (run with `--appimage-extract-and-run` in the test chroot).
+
+Because AppImages need FUSE and are unreliable on some Arch setups, the same
+files also ship as a plain folder (tar.gz) and as an Arch package
+(`tools/arch/pkg/PKGBUILD`). In the Arch rootfs, `makepkg` built
+`savagewind-bin-0.2.0alpha2-1`, `pacman -U` installed it, and as an unprivileged
+user both the installed `savagewind` command and the extracted folder drew the
+launcher through Vulkan (llvmpipe), with the data folder created under
+`~/.local/share/savagewind`.
