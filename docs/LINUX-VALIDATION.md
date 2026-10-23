@@ -1,0 +1,42 @@
+# Validation of the Arch preparation
+
+Source: uploaded SavageWindRecomp-0.2.0-alpha.2.zip, archive comment commit
+ad95614c2c90fc29f4a1ea40de38a70896666e15. This is a local import into the
+previously empty botwlinux checkout. The release adds Arch setup instructions
+and fixes the Vulkan pipeline test harness; it does not establish full gameplay.
+
+Test host: Debian 13 x86-64, Clang 19, SDL 3.4.16, Vulkan headers 1.4.350.1,
+Mesa 25.0.7 llvmpipe (software rendering), Xvfb. SDL and Vulkan header archives
+were checked against the SHA-256 hashes pinned in tools/linux/build_deps.sh.
+Dependencies were extracted into a workspace prefix because system installation
+is unavailable on this cloud host. The prefix is a cloud-only setup, excluded
+from the source distribution.
+
+Passed:
+
+- Native runtime compile and link with the existing Linux backend.
+- Actual launcher startup and 1280x720 screenshot through Vulkan on Xvfb.
+- Synthetic module layout: 55 checks.
+- Portable SIMD differential test: validity scan of 1,048,640 encodings, followed
+  by 200 sampled valid encodings and 800 execution cases, zero mismatches.
+- Vulkan pipeline fuzz test: 29 graphics pairs, 19 compute programs, zero
+  failures; 52 generated cases skipped because translation failed. Khronos
+  validation layers were unavailable; zero validation messages is not evidence
+  of a validation-layer pass.
+- Syntax checks of Arch setup/launch scripts and the pipeline test shell script.
+
+Changes beyond the uploaded source:
+
+- tools/arch/setup.sh and run.sh plus docs/ARCH.md for a native Arch workflow.
+- Pipeline test: choose Linux's Vulkan and shaderc linker flags, include the
+  existing SMAA source, and provide the test harness's missing device-loss hook.
+  No renderer or gameplay assertions were disabled to get a pass.
+
+Not verified: execution of pacman or the setup script on Arch; AMD/Intel hardware
+rendering; game-code generation from real game files; gameplay, audio, input or
+save/load; Steam/Proton. The uploaded Windows ZIP exceeded the file transfer
+limit and was not inspected. The Linux runtime still has upstream compiler
+warnings. This work does not certify full-game functionality of the alpha.
+
+Next required input: extracted Breath of the Wild 1.8.2 exefs and merged romfs
+available on a target PC, followed by the functional checks in docs/ARCH.md.
