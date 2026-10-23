@@ -27,6 +27,11 @@ def extractor_error(stdout, stderr, returncode):
     text = (stdout + '\n' + stderr).lower()
     if any(word in text for word in ('unrecognized option', 'unknown option', 'invalid option')):
         return 'This hactool version does not support the required options. Update hactool.'
+    if re.search(r'key \(.*\) must be \d+ hex digits', text):
+        return ('A key entry has an invalid length or contains non-hex characters. '
+                'Use an unmodified prod.keys dump from your own console; do not paste its contents.')
+    if 'already has a corresponding titlekey' in text:
+        return 'hactool found duplicate title-key entries.'
     if 'invalid nca header' in text:
         return ('hactool could not decrypt an NCA header. Your prod.keys may lack the correct header_key, '
                 'or the NSP may be damaged. Use keys dumped from your own console.')
@@ -42,7 +47,21 @@ def extractor_error(stdout, stderr, returncode):
     if 'unable to locate romfs in base nca' in text:
         return 'hactool could not read the base game RomFS. Check the base NSP and its title key.'
     if returncode:
-        return f'hactool failed with exit code {returncode}. The cause could not be classified safely.'
+        # Preserve useful error messages, but exclude all key/value lines and redact
+        # long hex sequences (including hex dumps separated by spaces or colons).
+        safe = []
+        for line in stderr.splitlines():
+            if re.search(r'key|value|secret|rights.?id', line, re.I):
+                continue
+            if not re.match(r'^\s*(?:error|failed|unable|invalid|could not|cannot|fatal|usage|hactool)\b', line, re.I):
+                continue
+            line = re.sub(r'\b(?:[0-9a-fA-F]{2}[\s:-]*){8,}', '[redacted]', line)
+            line = ''.join(c for c in line if c.isprintable())[:240]
+            safe.append(line)
+            if len(safe) == 4:
+                break
+        detail = ' '.join(safe) or 'No safe error detail was available.'
+        return f'hactool failed with exit code {returncode}. {detail}'
     return None
 
 

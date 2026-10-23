@@ -31,7 +31,8 @@ system crash or forced kill can leave a `.nsp-import-*` directory in the data
 folder; remove that directory while Savage Wind is closed.
 
 Errors are recorded in `nsp-import.log` in the data folder. Extractor output is
-captured privately rather than copied to that log, to avoid disclosing keys.
+captured privately; only classified or filtered diagnostics are copied to the
+log, with key/value lines excluded and long hexadecimal sequences redacted.
 The normal extracted-folder setup and its version checks remain available.
 
 For command-line extraction only (the output folder must exist and be empty):
