@@ -54,3 +54,20 @@ the new launcher layout and rendering. The shared in-game settings palette and
 frame compile, but their appearance over real gameplay is not yet verified.
 The panorama and ornaments use original vector geometry. Existing user splash
 images still take precedence. No game assets are distributed with the theme.
+
+## Launcher executable on Arch
+
+Built in an Arch Linux rootfs (official bootstrap, packages current on
+2026-10-23: SDL 3.4.18, Vulkan headers 1.4.363, shaderc 2026.4.1, clang):
+the `tools/arch/setup.sh` steps compiled `build/savagewind` with no errors and
+`tools/test_layout.py` passed 55 checks. `build/savagewind --config` ran on
+Xvfb with Mesa lavapipe and drew the Game Files screen.
+
+`make appimage` produced `Savage_Wind-0.2.0-alpha.2-x86_64.AppImage` (85 MB).
+Run in the same Arch rootfs, it showed the first-run Welcome screen through
+Vulkan (log: llvmpipe, Vulkan 1.4), and its bundled `zig` (0.17.0) and `swgen`
+generator executed. Before this, the AppImage build failed at once: the source
+import had dropped the executable bit from every tools script.
+
+Not verified: setup with real game files, gameplay, hardware GPUs, FUSE mount
+(run with `--appimage-extract-and-run` in the test chroot).

@@ -5,6 +5,23 @@ It is an alpha: building the launcher does not establish full-game correctness.
 The upstream README reports that only the opening and Great Plateau have been
 tested on Windows, and Linux gameplay for this game is untested.
 
+## AppImage (single executable)
+
+`Savage_Wind-0.2.0-alpha.2-x86_64.AppImage` is the launcher as one file. It
+bundles SDL3, FFmpeg, shaderc, the frozen game-code generator (`swgen`) and Zig,
+so game-file setup needs no Python, clang or source checkout. Only glibc,
+libstdc++, the Vulkan loader and your GPU driver come from the system:
+
+```sh
+sudo pacman -S --needed fuse3 vulkan-icd-loader vulkan-radeon   # or vulkan-intel / nvidia-utils
+chmod +x Savage_Wind-0.2.0-alpha.2-x86_64.AppImage
+./Savage_Wind-0.2.0-alpha.2-x86_64.AppImage            # first run: game-file setup
+./Savage_Wind-0.2.0-alpha.2-x86_64.AppImage --config   # configuration screen
+```
+
+Build it yourself with `make appimage` (needs podman; it builds in Ubuntu 22.04
+containers so the result runs on glibc 2.35+).
+
 ## Native Linux (preferred)
 
 For the Ryzen 9600X + RX 6900 XT desktop, install Mesa RADV:
