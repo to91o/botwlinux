@@ -22,12 +22,44 @@ class ImportError(ValueError):
     pass
 
 
-def extractor_error(stdout, stderr, returncode):
+def prepare_keys(source, target):
+    """Normalize text conventions old hactool rejects, without changing key bytes."""
+    raw = source.read_bytes()
+    try:
+        text = raw.decode('utf-16' if raw.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig')
+    except UnicodeError:
+        raise ImportError('prod.keys is not a supported text file (UTF-8 or UTF-16).') from None
+    entries, locations = [], {}
+    for number, line in enumerate(text.splitlines(), 1):
+        line = re.split(r'[#;]', line, maxsplit=1)[0].strip()
+        if not line:
+            continue
+        match = re.fullmatch(r'([A-Za-z0-9_]+)\s*[,=]\s*([0-9a-fA-F]+)', line)
+        if not match:
+            raise ImportError(f'prod.keys line {number} is not a key_name = hexadecimal_value entry. No key values are shown.')
+        name, value = match[1].lower(), match[2].lower()
+        if len(value) % 2:
+            raise ImportError(f'prod.keys line {number} ({name}) has an odd number of hexadecimal characters.')
+        entries.append(f'{name} = {value}\n')
+        locations.setdefault(value, []).append(f'line {number} ({name})')
+    if not entries:
+        raise ImportError('prod.keys contains no key entries.')
+    target.write_text(''.join(entries), encoding='ascii')
+    os.chmod(target, 0o600)
+    return locations
+
+
+def extractor_error(stdout, stderr, returncode, key_locations=None):
     """Translate known diagnostics without ever forwarding extractor output or keys."""
     text = (stdout + '\n' + stderr).lower()
     if any(word in text for word in ('unrecognized option', 'unknown option', 'invalid option')):
         return 'This hactool version does not support the required options. Update hactool.'
-    if re.search(r'key \(.*\) must be \d+ hex digits', text):
+    invalid_key = re.search(r'key \(([^\r\n]*)\) must be (\d+) hex digits', text)
+    if invalid_key:
+        locations = (key_locations or {}).get(invalid_key[1], [])
+        if locations:
+            return (f'prod.keys {", ".join(locations[:4])}: hactool expected {invalid_key[2]} '
+                    f'hexadecimal characters, but the entry has {len(invalid_key[1])}. No key values are shown.')
         return ('A key entry has an invalid length or contains non-hex characters. '
                 'Use an unmodified prod.keys dump from your own console; do not paste its contents.')
     if 'already has a corresponding titlekey' in text:
@@ -144,8 +176,7 @@ def import_nsp(base, update, keys, output, tool=None):
         private = Path(private)
         keydir = private / '.switch'
         keydir.mkdir(mode=0o700)
-        shutil.copyfile(keys, keydir / 'prod.keys')
-        os.chmod(keydir / 'prod.keys', 0o600)
+        key_locations = prepare_keys(keys, keydir / 'prod.keys')
         base_dir, update_dir = private / 'base', private / 'update'
         unpack(base, base_dir)
         unpack(update, update_dir)
@@ -178,7 +209,7 @@ def import_nsp(base, update, keys, output, tool=None):
             result = subprocess.run([executable, '--suppresskeys', '-k', str(keydir / 'prod.keys'), *map(str, args)],
                                     env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                     errors='replace')
-            reason = extractor_error(result.stdout, result.stderr, result.returncode)
+            reason = extractor_error(result.stdout, result.stderr, result.returncode, key_locations)
             if reason:
                 raise ImportError(f'{stage}: {reason}')
             return result.stdout

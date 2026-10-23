@@ -17,6 +17,11 @@ keys automatically. For NSPs with missing or personalized tickets, put your
 `title.keys` next to the chosen `prod.keys` (lines in `rights_id = title_key`
 format). Personalized tickets themselves are not decrypted by this importer.
 
+For compatibility with hactool 1.4.0, the importer makes a temporary UTF-8 copy
+of `prod.keys`, accepting UTF-8/UTF-16 byte-order marks and stripping `#`/`;`
+comments. Key bytes and your original file are unchanged. Invalid entries are
+reported by line number and key name, without displaying the key value.
+
 The importer selects the Breath of the Wild program NCAs by title ID, then
 uses the base NCA to merge the update's RomFS. The launcher checks the resulting
 main module's build ID against the supported 1.8.2 version before replacing its

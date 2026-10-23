@@ -106,7 +106,7 @@ class NSPTests(unittest.TestCase):
         base, update, keys, output = (self.root / n for n in ('base.nsp', 'update.nsp', 'prod.keys', 'output'))
         base.write_bytes(archive([('program.nca', b'base'), ('common.tik', ticket())]))
         update.write_bytes(archive([('program.nca', b'update')]))
-        keys.write_text('header_key = synthetic-test-value\n')
+        keys.write_text('header_key = ' + 'ab' * 32 + '\n')
         output.mkdir()
         return base, update, keys, output
 
@@ -193,6 +193,32 @@ class NSPTests(unittest.TestCase):
         self.assertNotIn(secret, message)
         self.assertNotIn('not-even-hex', message)
         self.assertNotIn('stay private', message)
+
+    def test_normalize_key_text_without_changing_values(self):
+        source, target = self.root / 'prod.keys', self.root / 'normalized.keys'
+        text = '# comment\r\nHEADER_KEY = ' + 'AB' * 32 + ' # explanation\r\nmaster_key_00 = ' + 'CD' * 16 + '; note\n'
+        for encoding in ('utf-8-sig', 'utf-16'):
+            with self.subTest(encoding=encoding):
+                source.write_bytes(text.encode(encoding))
+                locations = nsp.prepare_keys(source, target)
+                self.assertEqual(target.read_text(), 'header_key = ' + 'ab' * 32 + '\nmaster_key_00 = ' + 'cd' * 16 + '\n')
+                self.assertEqual(locations['ab' * 32], ['line 2 (header_key)'])
+                self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(source.read_bytes(), text.encode(encoding))
+
+    def test_key_errors_name_lines_without_disclosing_values(self):
+        source, target = self.root / 'prod.keys', self.root / 'normalized.keys'
+        for text in ('header_key = secret-not-hex', 'header_key = abc', '# no entries'):
+            source.write_text(text)
+            with self.assertRaises(nsp.ImportError) as error:
+                nsp.prepare_keys(source, target)
+            self.assertNotIn('secret-not-hex', str(error.exception))
+        value = 'ab' * 16
+        message = nsp.extractor_error('', f'Key ({value}) must be 64 hex digits!', 1,
+                                      {value: ['line 7 (header_key)']})
+        self.assertIn('line 7 (header_key)', message)
+        self.assertIn('expected 64', message)
+        self.assertNotIn(value, message)
 
 
 if __name__ == '__main__':
