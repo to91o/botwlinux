@@ -22,6 +22,30 @@ class ImportError(ValueError):
     pass
 
 
+def extractor_error(stdout, stderr, returncode):
+    """Translate known diagnostics without ever forwarding extractor output or keys."""
+    text = (stdout + '\n' + stderr).lower()
+    if any(word in text for word in ('unrecognized option', 'unknown option', 'invalid option')):
+        return 'This hactool version does not support the required options. Update hactool.'
+    if 'invalid nca header' in text:
+        return ('hactool could not decrypt an NCA header. Your prod.keys may lack the correct header_key, '
+                'or the NSP may be damaged. Use keys dumped from your own console.')
+    if 'unable to match rights id to titlekey' in text:
+        return ('A required title key is missing. Put your own title.keys beside prod.keys; '
+                'it must contain keys for the base game and update when their tickets cannot supply them.')
+    if 'failed to read nca header' in text:
+        return 'An NCA header could not be read. Check that the NSP download/dump is complete.'
+    if 'error while loading shared libraries' in text:
+        return 'hactool cannot load a required system library. Repair or reinstall the hactool package.'
+    if any(word in text for word in ('failed to write', 'no space left on device', 'could not save file')):
+        return 'hactool could not write extracted files. Check free disk space and folder permissions.'
+    if 'unable to locate romfs in base nca' in text:
+        return 'hactool could not read the base game RomFS. Check the base NSP and its title key.'
+    if returncode:
+        return f'hactool failed with exit code {returncode}. The cause could not be classified safely.'
+    return None
+
+
 def unpack(package, destination):
     """Extract only NCA and ticket entries from a bounded, flat PFS0 archive."""
     destination.mkdir()
@@ -130,13 +154,14 @@ def import_nsp(base, update, keys, output, tool=None):
             else:
                 env.pop('LD_LIBRARY_PATH', None)
 
-        def run(*args):
+        def run(*args, stage):
             # Capture rather than forward hactool output: even failure logs must not contain keys.
             result = subprocess.run([executable, '--suppresskeys', '-k', str(keydir / 'prod.keys'), *map(str, args)],
                                     env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                     errors='replace')
-            if result.returncode:
-                raise ImportError('hactool could not read the NSP content. Check prod.keys and title.keys.')
+            reason = extractor_error(result.stdout, result.stderr, result.returncode)
+            if reason:
+                raise ImportError(f'{stage}: {reason}')
             return result.stdout
 
         def program(directory, expected):
@@ -144,7 +169,7 @@ def import_nsp(base, update, keys, output, tool=None):
             for path in sorted(directory.iterdir()):
                 if path.suffix.lower() != '.nca':
                     continue
-                info = run('-i', path)
+                info = run('-i', path, stage='Reading base NSP' if expected == BASE_ID else 'Reading update NSP')
                 if re.search(r'^Content Type:\s+Program\s*$', info, re.M):
                     title = re.search(r'^Title ID:\s+([0-9a-fA-F]{16})\s*$', info, re.M)
                     if title and title[1].lower() == expected:
@@ -156,7 +181,7 @@ def import_nsp(base, update, keys, output, tool=None):
         base_nca = program(base_dir, BASE_ID)
         update_nca = program(update_dir, UPDATE_ID)
         run('-x', '--basenca', base_nca, '--exefsdir', output / 'exefs',
-            '--romfsdir', output / 'romfs', update_nca)
+            '--romfsdir', output / 'romfs', update_nca, stage='Merging base game and update')
         if not (output / 'exefs/main').is_file() or not (output / 'exefs/main.npdm').is_file() or not (output / 'romfs').is_dir():
             raise ImportError('Could not decrypt and merge game files. Check your keys and update NSP.')
 
