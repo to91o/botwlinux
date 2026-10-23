@@ -1,0 +1,66 @@
+# Arch package of the Savage Wind launcher, built from this checkout (install-arch.sh runs it; or
+# `makepkg -si` here). Same layout as the release folder (tools/linux/package.sh): the launcher with
+# swgen/ (the game code generator, frozen), zig/ and gamelib-src/ next to it, which the start screen's
+# setup uses to build the game code from your own files. Linked against Arch's SDL3, FFmpeg and shaderc.
+# No game files or game code are packaged.
+pkgname=savagewind
+pkgver=0.2.0alpha.2
+pkgrel=1
+pkgdesc='Savage Wind Recomp launcher (bring your own game files)'
+arch=('x86_64')
+url='https://github.com/to91o/botwlinux'
+license=('MIT')
+depends=('glibc' 'gcc-libs' 'sdl3' 'ffmpeg' 'shaderc' 'vulkan-icd-loader' 'hicolor-icon-theme')
+makedepends=('git' 'clang' 'lld' 'pkgconf' 'python' 'curl' 'vulkan-headers')
+optdepends=('vulkan-radeon: AMD GPUs' 'vulkan-intel: Intel GPUs' 'nvidia-utils: NVIDIA GPUs'
+            'xdg-desktop-portal: game-folder picker (plus your desktop portal backend)'
+            'zenity: game-folder picker fallback')
+provides=('savagewind')
+conflicts=('savagewind-bin')
+# !strip: crash backtraces name functions, and zig's bundled libc archives must stay as shipped
+options=('!strip' '!debug' '!lto')
+_repo=$(realpath "$startdir/../../..")
+
+prepare() {
+    # this checkout's tracked files, with local edits, without build output or game files
+    rm -rf savagewind && mkdir savagewind
+    git -C "$_repo" ls-files -z | tar -C "$_repo" --null -T - -cf - | tar -xf - -C savagewind
+}
+
+pkgver() {
+    sed -n 's/^#define SAVAGEWIND_VERSION "\(.*\)"/\1/p' savagewind/runtime/ui/launcher.mm | tr -d '-'
+}
+
+build() {
+    cd savagewind
+    # the Makefile sets its own flags; makepkg's (CachyOS: -march, LTO) are not meant for it
+    unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS MAKEFLAGS
+    bash tools/arch/prepare-vma.sh
+    make -j"$(nproc)" DEPS="$PWD/build/arch-deps" SHADERC="$(pkg-config --libs shaderc)" build/savagewind
+    if nm build/savagewind | grep -q ' f_70'; then echo 'build/savagewind has game code linked in'; exit 1; fi
+    # the generator, frozen with the pinned modules (as tools/linux/gen_helper.sh)
+    python -m venv build/gen-venv
+    build/gen-venv/bin/python -m pip install -q capstone==5.0.9 unicorn==2.1.4 lz4==4.4.5 pyinstaller==6.22.3
+    build/gen-venv/bin/python -m PyInstaller --noconfirm --clean --log-level WARN --distpath build/helper \
+        --workpath build/pyinstaller tools/swgen.spec
+    bash tools/fetch_zig.sh
+}
+
+package() {
+    cd savagewind
+    local d="$pkgdir/opt/savagewind"
+    install -d "$d/gamelib-src" "$pkgdir/usr/bin"
+    install -m755 build/savagewind "$d/"
+    strip --strip-debug "$d/savagewind"
+    cp -a build/helper/swgen build/zig "$d/"
+    install -m644 runtime/cpu.h runtime/simd.h runtime/simd_fp.h runtime/gamelib.h tools/gamelib_entry.c \
+        runtime/hle/hle_symbols.txt "$d/gamelib-src/"
+    install -m644 docs/icon/icon_1024.png "$d/icon.png"
+    install -m644 third_party/fonts/FiraSans/FiraSans-SemiBold.ttf third_party/fonts/FiraSans/FiraSans-Medium.ttf "$d/"
+    install -m644 third_party/fonts/FiraSans/OFL.txt "$d/FiraSans-OFL.txt"
+    install -m644 README.md LICENSE "$d/"
+    ln -s /opt/savagewind/savagewind "$pkgdir/usr/bin/savagewind"
+    install -Dm644 tools/linux/savagewind.desktop "$pkgdir/usr/share/applications/savagewind.desktop"
+    install -Dm644 docs/icon/icon_1024.png "$pkgdir/usr/share/icons/hicolor/1024x1024/apps/savagewind.png"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

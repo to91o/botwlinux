@@ -79,3 +79,14 @@ files also ship as a plain folder (tar.gz) and as an Arch package
 user both the installed `savagewind` command and the extracted folder drew the
 launcher through Vulkan (llvmpipe), with the data folder created under
 `~/.local/share/savagewind`.
+
+## One-command install
+
+`install-arch.sh` was run end to end in the Arch rootfs as a fresh unprivileged
+user with passwordless sudo, accepting default answers: it installed base-devel
+and git, built `savagewind-0.2.0alpha.2-1` from the checkout and installed it
+(282 MiB, mostly Zig). As that user, `savagewind` drew the Welcome screen
+through Vulkan (llvmpipe), the installed `swgen` ran, and the installed
+`zig cc -march=x86_64_v3` compiled and ran a C program. `pacman -R savagewind`
+removed `/opt/savagewind` and `/usr/bin/savagewind` and kept the data folder.
+The Vulkan-driver step was not exercised (no GPU in the test host).

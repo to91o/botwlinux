@@ -2,7 +2,7 @@
 
 **Arch/Linux preview:** this fork adds a Breath of the Wild–inspired launcher with
 an original mountain panorama, a glowing eye seal, parchment trim and slate-blue
-controls. See [Arch setup](docs/ARCH.md) and [validation](docs/LINUX-VALIDATION.md).
+controls. On Arch or CachyOS, install with `./install-arch.sh` (see [Arch setup](docs/ARCH.md)) and [validation](docs/LINUX-VALIDATION.md).
 Gameplay on Linux still needs testing with your extracted game files.
 
 ![Native Linux launcher preview](docs/images/botw-launcher.png)

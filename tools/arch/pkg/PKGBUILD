@@ -10,6 +10,8 @@ arch=('x86_64')
 url='https://github.com/to91o/botwlinux'
 license=('MIT')
 depends=('glibc' 'gcc-libs' 'vulkan-icd-loader' 'hicolor-icon-theme')
+provides=('savagewind')
+conflicts=('savagewind')
 optdepends=('vulkan-radeon: AMD GPUs' 'vulkan-intel: Intel GPUs' 'nvidia-utils: NVIDIA GPUs'
             'xdg-desktop-portal: game-folder picker (plus your desktop portal backend)'
             'zenity: game-folder picker fallback')

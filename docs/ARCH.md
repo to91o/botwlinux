@@ -1,5 +1,24 @@
 # Arch Linux: native build and Proton fallback
 
+## Install (one command)
+
+On Arch Linux, CachyOS or another Arch-based system, as your normal user:
+
+```sh
+git clone https://github.com/to91o/botwlinux && cd botwlinux
+./install-arch.sh
+```
+
+It installs the build tools (and the Vulkan driver for an AMD or Intel GPU if
+none is installed), builds the launcher with Arch's own SDL3, FFmpeg and shaderc
+as a pacman package (`tools/arch/pkg-src/PKGBUILD`) and installs it. Then start
+**Savage Wind** from the app menu or run `savagewind`; the first start asks for
+your extracted game files. `savagewind --config` opens the configuration screen.
+
+Update: `git pull && ./install-arch.sh`. Remove: `sudo pacman -R savagewind`
+(game files, saves and settings in `~/.local/share/savagewind` are kept).
+NVIDIA users install the `nvidia-utils` matching their kernel driver themselves.
+
 This is SavageWind 0.2.0-alpha.2, including its existing Linux Vulkan backend.
 It is an alpha: building the launcher does not establish full-game correctness.
 The upstream README reports that only the opening and Great Plateau have been
