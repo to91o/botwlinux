@@ -21,6 +21,10 @@ For compatibility with hactool 1.4.0, the importer makes a temporary UTF-8 copy
 of `prod.keys`, accepting UTF-8/UTF-16 byte-order marks and stripping `#`/`;`
 comments. Key bytes and your original file are unchanged. Invalid entries are
 reported by line number and key name, without displaying the key value.
+Malformed `master_kek_source_XX` and `mariko_master_kek_source_XX` entries are
+omitted from the temporary copy only when a nonzero, correctly sized
+`master_key_XX` is supplied for that same generation. These hardware derivation
+sources are unnecessary when the derived master key is already available.
 
 The importer selects the Breath of the Wild program NCAs by title ID, then
 uses the base NCA to merge the update's RomFS. The launcher checks the resulting
