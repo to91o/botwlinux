@@ -29,7 +29,7 @@ def prepare_keys(source, target):
         text = raw.decode('utf-16' if raw.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig')
     except UnicodeError:
         raise ImportError('prod.keys is not a supported text file (UTF-8 or UTF-16).') from None
-    entries, locations = [], {}
+    parsed, entries, locations = [], [], {}
     for number, line in enumerate(text.splitlines(), 1):
         line = re.split(r'[#;]', line, maxsplit=1)[0].strip()
         if not line:
@@ -40,6 +40,17 @@ def prepare_keys(source, target):
         name, value = match[1].lower(), match[2].lower()
         if len(value) % 2:
             raise ImportError(f'prod.keys line {number} ({name}) has an odd number of hexadecimal characters.')
+        parsed.append((number, name, value))
+    supplied = {name: value for _, name, value in parsed}
+    for number, name, value in parsed:
+        # NCA decryption can use supplied master keys directly. Bad console-side
+        # derivation sources must not prevent loading an otherwise usable keyset.
+        source = re.fullmatch(r'(?:mariko_)?master_kek_source_([0-9a-f]{2})', name)
+        direct = supplied.get('master_key_' + source[1], '') if source else ''
+        if source and len(value) != 32 and len(direct) == 32 and int(direct, 16):
+            print(f'NSP import: skipping unused malformed {name} on line {number}; '
+                  'the corresponding derived master key is supplied.', file=sys.stderr)
+            continue
         entries.append(f'{name} = {value}\n')
         locations.setdefault(value, []).append(f'line {number} ({name})')
     if not entries:

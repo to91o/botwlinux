@@ -220,6 +220,22 @@ class NSPTests(unittest.TestCase):
         self.assertIn('expected 64', message)
         self.assertNotIn(value, message)
 
+    def test_bad_hardware_source_requires_derived_key_before_skipping(self):
+        source, target = self.root / 'prod.keys', self.root / 'normalized.keys'
+        malformed = 'ab' * 17
+        for prefix in ('master_kek_source_', 'mariko_master_kek_source_'):
+            with self.subTest(prefix=prefix):
+                name = prefix + '06'
+                source.write_text(f'{name} = {malformed}\nmaster_key_06 = ' + 'cd' * 16 + '\n')
+                with patch('sys.stderr'):
+                    nsp.prepare_keys(source, target)
+                self.assertNotIn(name, target.read_text())
+                self.assertIn('master_key_06', target.read_text())
+                for derived in ('', 'master_key_06 = ' + '00' * 16 + '\n'):
+                    source.write_text(f'{name} = {malformed}\n' + derived)
+                    nsp.prepare_keys(source, target)
+                    self.assertIn(name, target.read_text())
+
 
 if __name__ == '__main__':
     unittest.main()
