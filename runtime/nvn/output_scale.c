@@ -75,7 +75,7 @@ void output_scale(double dw, double dh, bool reshape_allowed, OutScale *o) {
     o->sx = sx; o->sy = sy; o->shape = shape;
     // the 3D scene (BOTW docked: 1600x900, composited into the 1920x1080 final image) at the final image's
     // resolution, divided by the upscaler's factor
-    double k = 1080.0 / SCENE_LINES / scene_div;
+    double k = 1080.0 / SCENE_LINES / scene_div * g_settings.render_scale;
     o->scene_sx = sx * k; o->scene_sy = sy * k;
     double scap = fmin(MAX_TEX / (1920.0 * o->scene_sx), MAX_TEX / (1080.0 * o->scene_sy));
     if (scap < 1.0) { o->scene_sx *= scap; o->scene_sy *= scap; }

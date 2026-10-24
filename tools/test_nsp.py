@@ -138,6 +138,16 @@ class NSPTests(unittest.TestCase):
         self.assertEqual({p.name for p in args[-1].iterdir()}, {'exefs', 'romfs'})
         self.assertEqual(args[0].read_bytes(), archive([('program.nca', b'base'), ('common.tik', ticket())]))
 
+    def test_update_program_uses_application_title_id(self):
+        args = self.setup_import()
+        def run(argv, **kwargs):
+            result = self.fake_run(argv, **kwargs)
+            result.stdout = result.stdout.replace(nsp.UPDATE_ID, nsp.BASE_ID)
+            return result
+        with patch('nsp.shutil.which', return_value='/test/hactool'), patch('nsp.subprocess.run', side_effect=run):
+            nsp.import_nsp(*args)
+        self.assertTrue((args[-1] / 'exefs/main').is_file())
+
     def test_extractor_failure_does_not_leak_output_or_keep_keys(self):
         args = self.setup_import()
         result = type('Result', (), {'returncode': 1, 'stdout': 'secret-key-value', 'stderr': 'secret-key-value'})()

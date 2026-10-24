@@ -1,4 +1,5 @@
 # Savage Wind build
+.DEFAULT_GOAL := all
 # macOS: Homebrew clang/SDL3/FFmpeg, Metal renderer.
 # Windows: MSYS2 UCRT64 shell (see docs/BUILD-windows.md), clang + Vulkan renderer.
 # Linux: clang + Vulkan renderer, x86-64 or aarch64 (see docs/linux.md).
@@ -37,6 +38,19 @@ CC       := clang $(MINFLAG) $(CROSS)
 CXX      := clang++ $(MINFLAG) $(CROSS)
 IMGUI    := third_party/imgui
 GENFLAGS := -O1 -fno-strict-aliasing -Wno-return-type -Wno-unused-label -fvisibility=hidden -Iruntime
+
+# Developer build option, tested with matching LLVM/Clang 23 on Linux. Large lifted CFGs can make LLVM's loop
+# and block-frequency analyses take minutes per function. Optimize scalar IR, then use a cheaper backend only
+# for those large functions; keep optimized register allocation for the ordinary ones. Default builds are unchanged.
+BOUNDED_CODEGEN ?= 0
+LLVM_CONFIG ?= llvm-config
+ifeq ($(BOUNDED_CODEGEN),1)
+GEN_PASS_PLUGIN := $(abspath $(B)/tools/bounded_codegen.so)
+GENFLAGS += -O2 -fno-slp-vectorize -fpass-plugin=$(GEN_PASS_PLUGIN) -mllvm -disable-cgp -mllvm -disable-block-placement -DSW_BOUNDED_CODEGEN=1
+$(GEN_PASS_PLUGIN): tools/bounded_codegen.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -shared -fPIC $$($(LLVM_CONFIG) --cxxflags) $< -o $@ $$($(LLVM_CONFIG) --ldflags --libs core passes)
+endif
 
 # The game code (made by `make gen` from your own game files) is its own library next to the app (runtime/gamelib.h);
 # the app itself holds none of it. $(GEN)/layout.c, then a folder per module (main, subsdk*, sdk)
@@ -114,6 +128,10 @@ GAMELIB_SRCS := tools/gen.py tools/lifter.py tools/analyze.py tools/nso.py tools
                 tools/simd_c.py tools/gamelib_entry.c runtime/hle/hle_symbols.txt \
                 runtime/cpu.h runtime/simd.h runtime/simd_fp.h runtime/gamelib.h
 GAMELIB_SRCS += tools/layout.py
+ifeq ($(BOUNDED_CODEGEN),1)
+GAMELIB_SRCS += tools/bounded_codegen.cpp
+$(GEN_OBJ): $(GEN_PASS_PLUGIN)
+endif
 GAMELIB_ID := $(shell (cat $(GAMELIB_SRCS); echo '$(GENFLAGS)') | (shasum -a 256 2>/dev/null || sha256sum) | cut -c1-16)
 
 RT_OBJ   := $(patsubst runtime/%.c,$(B)/rt/%.o,$(RT_SRC))
@@ -122,15 +140,15 @@ CXXFLAGS := -O2 -g -std=c++17 -I$(IMGUI) -I$(IMGUI)/backends -Iruntime -Iruntime
 
 all: $(EXE) $(CONFIG_EXE) $(if $(strip $(GEN_SRC)),$(GAMELIB))  # (GEN_SRC is a space when there is no generated/)
 
-$(B)/obj/%.o: $(GEN)/%.c runtime/cpu.h runtime/simd.h runtime/simd_fp.h  # (cpu.h includes both)
+$(B)/obj/%.o: $(GEN)/%.c runtime/cpu.h runtime/simd.h runtime/simd_fp.h Makefile  # (cpu.h includes both)
 	@mkdir -p $(dir $@)
 	@$(CC) $(GENFLAGS) -c $< -o $@
 $(B)/obj/layout.o: runtime/gamelib.h
 
-$(B)/obj/tools/gamelib_entry.o: tools/gamelib_entry.c $(GAMELIB_SRCS)
+$(B)/obj/tools/gamelib_entry.o: tools/gamelib_entry.c $(GAMELIB_SRCS) Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(GENFLAGS) -DGAMELIB_ID='"$(GAMELIB_ID)"' -c $< -o $@
-$(B)/rt/gamelib.o: $(GAMELIB_SRCS)
+$(B)/rt/gamelib.o: $(GAMELIB_SRCS) Makefile
 $(B)/rt/gamelib.o: RTFLAGS += -DGAMELIB_ID='"$(GAMELIB_ID)"'
 # the start screen's build of it (runtime/gamebuild.c) uses the same flags
 $(B)/rt/gamebuild.o: $(GAMELIB_SRCS) Makefile

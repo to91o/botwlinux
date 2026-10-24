@@ -127,6 +127,7 @@ static bool nso_build_id(const std::string &main_path, std::string *hex) {
 // tools/sw_probe.py prints it). Other versions would need their own recompilation work.
 static const char *const SUPPORTED_MAIN[] = {"de0b6ac4efc1dda7"};
 static bool supported_main(const std::string &id) {
+    if (id == "cd57b23fa4bbad65" && getenv("SAVAGEWIND_EXPERIMENTAL_19")) return true;
     for (const char *s : SUPPORTED_MAIN)
         if (id == s) return true;
     return false;
@@ -472,10 +473,16 @@ static bool menu_tip(float s) {
     if (open) {
         ImGui::SetWindowFontScale(1.25f);
         ImGui::PushTextWrapPos(0);
-        ImGui::TextUnformatted(tr("Savage Wind's video, audio and controls settings are in the game's own Options."));
-        ImGui::Spacing();
-        ImGui::TextUnformatted(tr("Open them from the title screen, or pause the game and choose System > Options. "
-                                  "Esc frees the mouse cursor."));
+        if (getenv("SAVAGEWIND_EXPERIMENTAL_19")) {
+            ImGui::TextUnformatted(tr("Choose graphics presets and controls in the launcher's Settings."));
+            ImGui::Spacing();
+            ImGui::TextUnformatted(tr("During play, press F1 to open these settings. Press F11 to toggle fullscreen."));
+        } else {
+            ImGui::TextUnformatted(tr("Savage Wind's video, audio and controls settings are in the game's own Options."));
+            ImGui::Spacing();
+            ImGui::TextUnformatted(tr("Open them from the title screen, or pause the game and choose System > Options. "
+                                      "Esc frees the mouse cursor."));
+        }
         ImGui::PopTextWrapPos();
         ImGui::Dummy(ImVec2(0, 14 * s));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 180 * s) * 0.5f);

@@ -402,6 +402,18 @@ void input_frame(uint64_t frame) {
     watch_arm();
     host_test_frame(frame);
     const char *spec = getenv("SAVAGEWIND_INPUT");
+    // Optional integration-test script, reloaded at each frame so a test can
+    // drive the running game after observing its current screen. Same syntax
+    // as SAVAGEWIND_INPUT; never enabled in a normal launch.
+    const char *script_file = getenv("SAVAGEWIND_TEST_INPUT_FILE");
+    static char file_spec[16384];
+    if (script_file) {
+        FILE *f = fopen(script_file, "rb");
+        size_t n = f ? fread(file_spec, 1, sizeof file_spec - 1, f) : 0;
+        if (f) fclose(f);
+        file_spec[n] = 0;
+        spec = file_spec;
+    }
     if (!spec) return;
     static const char *const names[] = {"A", "B", "X", "Y", "LSTICK", "RSTICK", "L", "R", "ZL", "ZR", "PLUS",
                                         "MINUS", "LEFT", "UP", "RIGHT", "DOWN"};
@@ -413,6 +425,11 @@ void input_frame(uint64_t frame) {
         unsigned long start = 0, len = 10;
         char name[32] = "";
         if (sscanf(tok, "%lu:%31[A-Z_0-9]:%lu", &start, name, &len) < 2) continue;
+        if (!strcmp(name, "SHOT")) {
+            if (frame == start) snprintf(g_window_shot_request, sizeof g_window_shot_request,
+                                         "build/test_shot_%lu.png", start);
+            continue;
+        }
         if (frame < start || frame >= start + len) continue;
         if (!strcmp(name, "STICK_UP")) ly = 32767;
         else if (!strcmp(name, "STICK_DOWN")) ly = -32767;

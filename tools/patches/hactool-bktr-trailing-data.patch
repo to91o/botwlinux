@@ -1,0 +1,34 @@
+diff --git a/nca.c b/nca.c
+index 8a84366..53100b1 100644
+--- a/nca.c
++++ b/nca.c
+@@ -1148,8 +1148,14 @@ void nca_process_bktr_section(nca_section_ctx_t *ctx) {
+     bktr_superblock_t *sb = ctx->bktr_ctx.superblock;
+     /* Validate magics. */
+     if (sb->relocation_header.magic == MAGIC_BKTR && sb->subsection_header.magic == MAGIC_BKTR) {
+-        if (sb->relocation_header.offset + sb->relocation_header.size != sb->subsection_header.offset ||
+-            sb->subsection_header.offset + sb->subsection_header.size != ctx->size) {
++        /* Some update NCAs retain trailing section data after the BKTR tables.
++         * Require adjacent, in-bounds tables, without requiring the last table
++         * to consume the complete section. Subtraction avoids integer wrap. */
++        if (sb->relocation_header.offset > ctx->size ||
++            sb->relocation_header.size > ctx->size - sb->relocation_header.offset ||
++            sb->relocation_header.offset + sb->relocation_header.size != sb->subsection_header.offset ||
++            sb->subsection_header.offset > ctx->size ||
++            sb->subsection_header.size > ctx->size - sb->subsection_header.offset) {
+             fprintf(stderr, "Invalid BKTR layout!\n");
+             exit(EXIT_FAILURE);
+         }
+@@ -1180,7 +1186,11 @@ void nca_process_bktr_section(nca_section_ctx_t *ctx) {
+         ctx->bktr_ctx.relocation_block = relocs;
+         ctx->bktr_ctx.subsection_block = subs;
+
+-        if (ctx->bktr_ctx.subsection_block->total_size != sb->subsection_header.offset) {
++        /* Newer tables describe the encrypted data extent up to the relocation
++         * table; older tables include the relocation table in this extent. */
++        if (ctx->bktr_ctx.subsection_block->total_size != sb->subsection_header.offset &&
++            ctx->bktr_ctx.subsection_block->total_size != sb->relocation_header.offset) {
++            fprintf(stderr, "Invalid BKTR subsection extent!\n");
+             free(relocs);
+             free(subs);
+             ctx->bktr_ctx.relocation_block = NULL;

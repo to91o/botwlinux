@@ -4498,7 +4498,7 @@ static VkImageView post_process(VkCommandBuffer cb, TexBackend *b, double ow_d, 
         float pe[8] = {iw / ow, ih / oh, 0.5f * iw / ow - 0.5f, 0.5f * ih / oh - 0.5f, iw, ih};
         VkImageView ei[3] = {v};
         post_pass(cb, "easu.frag", ei, 1, e, pe, false);
-        float pr[8] = {exp2f(-0.2f), 0, 0, 0, (float)ow, (float)oh};  // (sharpness 0.2 stops: AMD's default)
+        float pr[8] = {g_settings.fsr_sharpness, 0, 0, 0, (float)ow, (float)oh};
         VkImageView ri_[3] = {post_view(e)};
         post_pass(cb, "rcas.frag", ri_, 1, r, pr, false);
         v = post_view(r);
@@ -4552,7 +4552,7 @@ static void scene_upscale(Prog *pr, CmdRec *r) {
         static const VkComponentMapping id = {0};
         VkImageView in[3] = {vk_image_view(b, VK_IMAGE_VIEW_TYPE_2D, b->format, 0, 1, 0, 1, id, VK_IMAGE_ASPECT_COLOR_BIT)};
         post_pass(cb, "easu.frag", in, 1, e, pe, false);
-        float pr_[8] = {exp2f(-0.2f), 0, 0, 0, (float)ow, (float)oh};  // (sharpness 0.2 stops: AMD's default)
+        float pr_[8] = {g_settings.fsr_sharpness, 0, 0, 0, (float)ow, (float)oh};
         VkImageView ri[3] = {post_view(e)};
         post_pass(cb, "rcas.frag", ri, 1, o, pr_, false);
         vk_full_barrier(cb);

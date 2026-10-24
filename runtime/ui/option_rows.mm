@@ -158,7 +158,35 @@ bool opt_choice_avail(const char *label, int *v, int *shown, const char *const *
 bool opt_slider(const char *label, float *v, float lo, float hi, float step, float def, const char *fmt, const char *desc) {
     char buf[32];
     snprintf(buf, sizeof buf, tr(fmt), *v);
+    bool off = g_next_disabled;
     int s = row(label, buf, fabsf(*v - def) > step * 0.01f, desc, true, true);
+    // A draggable track below the label, while the value and arrows retain keyboard/gamepad stepping.
+    ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+    float x0 = a.x + 16 * g_scale, x1 = b.x - 140 * g_scale, y = b.y - 6 * g_scale;
+    if (x1 > x0 && hi > lo) {
+        static ImGuiID dragging;
+        ImGuiID id = ImGui::GetItemID();
+        ImVec2 mouse = ImGui::GetIO().MousePos;
+        if (!off && ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            mouse.x >= x0 - 4 * g_scale && mouse.x <= x1 + 4 * g_scale && mouse.y >= y - 5 * g_scale)
+            dragging = id;
+        bool changed = false;
+        if (dragging == id && !off && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            float t = fminf(1.0f, fmaxf(0.0f, (mouse.x - x0) / (x1 - x0)));
+            float n = lo + roundf(t * (hi - lo) / step) * step;
+            n = fminf(hi, fmaxf(lo, n));
+            changed = n != *v;
+            *v = n;
+            s = 0;
+        }
+        if (dragging == id && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) dragging = 0, s = 0;
+        float t = fminf(1.0f, fmaxf(0.0f, (*v - lo) / (hi - lo)));
+        ImDrawList *dl = ImGui::GetWindowDrawList();
+        dl->AddLine(ImVec2(x0, y), ImVec2(x1, y), IM_COL32(100, 115, 118, 120), 2 * g_scale);
+        dl->AddLine(ImVec2(x0, y), ImVec2(x0 + t * (x1 - x0), y), off ? IM_COL32(100, 115, 118, 120) : kGold, 2 * g_scale);
+        dl->AddCircleFilled(ImVec2(x0 + t * (x1 - x0), y), 3 * g_scale, off ? IM_COL32(100, 115, 118, 120) : kGold);
+        if (changed) return true;
+    }
     if (!s) return false;
     float eps = step * 0.01f, n = roundf(*v / step) * step + (s == 2 ? step : s * step);
     if (s == 2 && n > hi + eps) n = lo;  // (A / click past the top wraps to the bottom; left / right stop at the ends)

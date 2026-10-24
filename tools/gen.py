@@ -60,6 +60,9 @@ class Module:
     def __init__(self, name, path, base, simd='asm'):
         self.name = name
         self.nso = Nso(path)
+        # 1.9.0 currently uses the original game menus and console frame clock.
+        # The 1.8.2 hooks must never be applied to its different instructions.
+        self.patches = {} if name == 'main' and self.nso.build_id.startswith('cd57b23fa4bbad65') else PATCHES
         self.base = base
         n = self.nso
         self.lo = base + n.text[0]
@@ -422,9 +425,9 @@ class Module:
             if a in labels:
                 flush()
                 out.append(f'L_{a:x}:;')
-            if a in PATCHES:  # hand-written replacement for one instruction (tools/patches.py)
+            if a in self.patches:  # build-specific replacements (tools/patches.py)
                 flush()
-                out.append('    ' + PATCHES[a](self, a))
+                out.append('    ' + self.patches[a](self, a))
                 last = 'op'
                 continue
             k = ins.kind

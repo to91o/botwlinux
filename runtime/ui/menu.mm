@@ -28,6 +28,7 @@ extern "C" bool vk_imgui_backend_init(void);  // runtime/nvn/vulkan/imgui_glue.c
 extern "C" {
 #include "../hle.h"
 #include "../settings.h"
+#include "../gamelib.h"
 #include "../window_size.h"
 extern "C" {
 #include "../language.h"
@@ -156,6 +157,7 @@ extern "C" bool menu_input_captured(void) { return capturing() || game_options_i
 // longer open this menu (SAVAGEWIND_OVERLAY=1 brings it back). Esc frees the mouse cursor instead, a click in the
 // window holds it again (runtime/hle/input.c).
 static bool overlay_enabled(void) {
+    if (!game_uses_182_hooks()) return true;
     static const bool on = getenv("SAVAGEWIND_OVERLAY") && *getenv("SAVAGEWIND_OVERLAY") != '0';
     return on;
 }
@@ -465,6 +467,18 @@ extern "C" {
 static void tab_display(void) {
     float scale = ImGui::GetFontSize() / 34;
     opt_begin("##video", scale);
+    opt_section("Graphics preset");
+    {
+        static const char *const names[] = {"Low", "Balanced", "High", "Ultra", "Custom"};
+        static const bool available[] = {true, true, true, true, false};
+        int preset = settings_graphics_preset(), shown = preset;
+        if (opt_choice_avail("Preset", &preset, &shown, names, available, 5, GRAPHICS_BALANCED,
+                             "Low: smaller 3D image for slower graphics hardware. Balanced: FSR Quality, with "
+                             "anti-aliasing off. High: FSR Ultra Quality and SMAA. Ultra: full resolution and SMAA. "
+                             "Your window size, fullscreen mode and frame limit stay the same. Adjust an individual "
+                             "rendering setting to make a Custom preset. Performance depends on your hardware and scene."))
+            settings_apply_graphics_preset(preset);
+    }
     opt_section("Display");
     bool fs = g_settings.fullscreen;
     if (opt_toggle("Fullscreen", &fs, false, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
@@ -524,6 +538,23 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Rendering");
+#ifndef __APPLE__
+    {
+        float pct = roundf(g_settings.render_scale * 100.0f);
+        if (!upscale_modes_available()) opt_disable_next();
+        if (opt_slider("Render scale", &pct, 50, 150, 5, 100, "%g%%",
+                       "Scales the 3D resolution in addition to the upscaler mode. Lower values reduce GPU work "
+                       "and soften the image; higher values improve detail at a greater GPU cost. HUD and menu "
+                       "resolution stay unchanged. 100% uses the selected upscaler mode without an extra reduction."))
+            g_settings.render_scale = pct / 100.0f;
+        float sharp = roundf(g_settings.fsr_sharpness * 100.0f);
+        if (g_settings.upscaler != UPSCALE_FSR1) opt_disable_next();
+        if (opt_slider("FSR sharpening", &sharp, 0, 100, 5, 87, "%g%%",
+                       "Sharpens the image after FSR upscaling. 0% leaves the upscaled image unsharpened. Higher "
+                       "values make edges stronger and can emphasize noise. This does not change render resolution."))
+            g_settings.fsr_sharpness = sharp / 100.0f;
+    }
+#endif
     {   // Upscaler: Off, this OS's spatial upscaler (its modes on the row below), and the temporal ones still to come.
         // Values that can't be picked yet are shown greyed ("coming soon"); stepping onto them keeps the one in use.
         // The modes wait for render-target scaling (upscale_modes_available): until then the upscaler brings the

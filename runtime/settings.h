@@ -17,6 +17,7 @@ enum { UPSCALE_OFF = 0, UPSCALE_METALFX = 1 /* macOS */, UPSCALE_FSR1 = 2 /* AMD
 enum { UPQ_ULTRA = 0, UPQ_QUALITY = 1, UPQ_BALANCED = 2, UPQ_PERFORMANCE = 3, UPQ_COUNT };
 enum { AA_OFF = 0, AA_SMAA = 1 };
 enum { PERF_OFF = 0, PERF_FPS = 1, PERF_FULL = 2 };
+enum { GRAPHICS_LOW = 0, GRAPHICS_BALANCED, GRAPHICS_HIGH, GRAPHICS_ULTRA, GRAPHICS_CUSTOM };
 // Frame rate (Video > Frame rate; runtime/hle/framepace.c): frames per second, 0 = no limit. The game's clock is the
 // same at every rate. The console runs the game at 30.
 #define FPS_DEFAULT 60
@@ -28,6 +29,8 @@ typedef struct {
     int upscaler;        // UPSCALE_*: Off (render at the window's size), or render smaller and scale up
     int upscale_quality; // UPQ_*: the upscaler's mode (how much smaller it renders)
     int antialias;       // AA_*: anti-aliasing of the game image before it is scaled to the window
+    float render_scale; // additional 3D resolution multiplier, 0.5..1.5; HUD resolution stays unchanged
+    float fsr_sharpness; // RCAS strength, 0..1 (0: no sharpening)
     float volume;        // master volume, 1 = 100%
     bool reverb;         // room reverb effect
     bool movie_audio;
@@ -49,3 +52,5 @@ extern Settings g_settings;
 
 void settings_load(void);
 void settings_save(void);
+int settings_graphics_preset(void);
+void settings_apply_graphics_preset(int preset);

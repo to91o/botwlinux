@@ -1,3 +1,4 @@
+#include "../gamelib.h"
 // fsp-srv: RomFS as a raw storage image, save data and SD card backed by host directories.
 //
 // RomFS overlay (development): SAVAGEWIND_ROMFS_OVERLAY=<dir>, a folder laid out like the RomFS. Its files replace
@@ -340,6 +341,7 @@ static void rom_index(int fd) {
     // <major>.<minor>" instead (the "Ver." goes in fs_title_version_patch), unless the overlay folder replaces the
     // file. The line's text box holds 15 characters, so the full version is only in Savage Wind Configuration.
     for (int i = 0; i < rom_nfiles; i++) {
+        if (!game_uses_182_hooks()) break;  // keep the actual version for the 1.9 profile
         if (strcmp(rom_files[i].path, "System/Version.txt")) continue;
         char host[1200];
         struct stat sb;
@@ -372,6 +374,7 @@ static void rom_index(int fd) {
 // project, read by FUN_7100d4b57c and FUN_7100d4bca0); "%s" leaves just "Savage Wind <version>". Called once main is
 // loaded; anything else at that address is left alone.
 void fs_title_version_patch(void) {
+    if (!game_uses_182_hooks()) return;
     char *fmt = (char *)(uintptr_t)0x70014b854eull;
     if (memcmp(fmt, "Ver.%s", 7)) { LOG("[fs] title version: \"Ver.%%s\" not found, left as is\n"); return; }
     memcpy(fmt, "%s", 3);

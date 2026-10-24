@@ -897,8 +897,12 @@ static void present_locked(NvnTexture *t) {
         static long win_shot = -1;
         if (win_shot < 0) win_shot = getenv("SAVAGEWIND_WINDOW_SHOT") ? atol(getenv("SAVAGEWIND_WINDOW_SHOT")) : 0;
         bool shot = win_shot && (long)total_frames + 1 == win_shot;
-        vk_frame_end(shot ? "build/window.png" : NULL);
-        if (shot && getenv("SAVAGEWIND_EXIT_AFTER_SHOT")) { fflush(stderr); _exit(0); }
+        extern char g_window_shot_request[256];
+        bool requested = g_window_shot_request[0] != 0;
+        const char *fixed_path = getenv("SAVAGEWIND_SHOT_PATH");
+        vk_frame_end(requested ? g_window_shot_request : shot ? (fixed_path ? fixed_path : "build/window.png") : NULL);
+        if (requested) g_window_shot_request[0] = 0;
+        else if (shot && getenv("SAVAGEWIND_EXIT_AFTER_SHOT")) { fflush(stderr); _exit(0); }
     } else {
         renderer_submit();
     }

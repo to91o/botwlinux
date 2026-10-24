@@ -105,3 +105,8 @@ bool gamelib_load(const char *game_dir, char *why, size_t why_size) {
 }
 
 const GameLibTables *gamelib_tables(void) { return g_tables; }
+
+bool game_uses_182_hooks(void) {
+    const GameLibTables *g = gamelib_tables();
+    return !g || !*g->nmodules || strncmp(g->modules[0].build_id, "cd57b23fa4bbad65", 16) != 0;
+}

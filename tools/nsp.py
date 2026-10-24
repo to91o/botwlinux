@@ -233,7 +233,9 @@ def import_nsp(base, update, keys, output, tool=None):
                 info = run('-i', path, stage='Reading base NSP' if expected == BASE_ID else 'Reading update NSP')
                 if re.search(r'^Content Type:\s+Program\s*$', info, re.M):
                     title = re.search(r'^Title ID:\s+([0-9a-fA-F]{16})\s*$', info, re.M)
-                    if title and title[1].lower() == expected:
+                    # Update program NCAs retain the application's title ID.
+                    accepted = {BASE_ID, UPDATE_ID} if expected == UPDATE_ID else {BASE_ID}
+                    if title and title[1].lower() in accepted:
                         found.append(path)
             if len(found) != 1:
                 raise ImportError('Select the Breath of the Wild base NSP and its matching 1.8.2 update NSP.')

@@ -69,6 +69,8 @@ static void common_state_getter(Service *s, IpcReq *req, IpcResp *resp) {
     case 6: OUT(uint32_t, 0) = 1; resp_size(resp, 4); break;  // GetPerformanceMode: boost
     case 8: OUT(uint8_t, 0) = 0; resp_size(resp, 1); break;   // GetBootMode
     case 9: OUT(uint8_t, 0) = 1; resp_size(resp, 1); break;   // GetCurrentFocusState: in focus
+    // libnx appletIsVrModeEnabled: common-state command 50 returns a bool.
+    case 50: OUT(uint8_t, 0) = 0; resp_size(resp, 1); break;
     case 13: case 61: resp->copy_handles[resp->ncopy++] = new_event(); break;
     case 60: {  // GetDefaultDisplayResolution
         int w = getenv("SAVAGEWIND_DISPLAY_W") ? atoi(getenv("SAVAGEWIND_DISPLAY_W")) : 1920;

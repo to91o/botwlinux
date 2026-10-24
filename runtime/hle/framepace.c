@@ -44,6 +44,7 @@
 #include "../hle.h"
 #include "../settings.h"
 #include "../framepace.h"
+#include "../gamelib.h"
 
 extern volatile int g_movie_playing;  // runtime/hle/movie.c: video decoders running
 
@@ -56,6 +57,7 @@ static int env_int(const char *name, int def) {
 }
 
 bool framepace_on(void) {
+    if (!game_uses_182_hooks()) return false;
     static int on = -1;
     if (on < 0) on = env_int("SAVAGEWIND_FRAMEPACE", 1) != 0;
     return on;
@@ -80,6 +82,7 @@ static bool in_event(void) {
 }
 
 int framepace_target(void) {
+    if (!game_uses_182_hooks()) return 30;
     static int forced = -2, movie = -2, menu = -2, event = -2;
     if (forced == -2) forced = env_int("SAVAGEWIND_FPS", -1);
     if (movie == -2) movie = env_int("SAVAGEWIND_MOVIE_FPS", 30);
@@ -143,6 +146,7 @@ static void clock_probe(uint64_t vfr);
 static void log_screens(void);
 
 void rt_vfr_update(uint64_t vfr) {
+    if (!game_uses_182_hooks()) return;
     extern bool nvn_timeline(void);
     if (nvn_timeline()) LOG("[tl] %.3f %x vfr\n", plat_now_ns() / 1e6, kernel_current_thread_handle());
     extern uint64_t g_fs_vfr;  // (SAVAGEWIND_FRAME_LOG=2, nvn/objects.c)
@@ -236,7 +240,7 @@ uint64_t framepace_script_frame(uint64_t presented) {
         static const char *next;
         static int init;
         if (!init) init = 1, next = getenv("SAVAGEWIND_DUMP_DATA_AT");
-        if (next && *next && (uint64_t)t >= strtoull(next, NULL, 10)) {
+        if (game_uses_182_hooks() && next && *next && (uint64_t)t >= strtoull(next, NULL, 10)) {
             char path[64];
             snprintf(path, sizeof path, "build/data_%llu.bin", (unsigned long long)t);
             FILE *f = fopen(path, "wb");

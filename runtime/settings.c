@@ -24,10 +24,35 @@ Settings g_settings = {
     .movie_audio = true,
     .upscaler = UPSCALE_DEFAULT,  // (Off: the window's resolution; MetalFX on macOS)
     .upscale_quality = UPQ_QUALITY,
+    .render_scale = 1.0f,
+    .fsr_sharpness = 0.87f,
     .mouse_camera = true,
     .mouse_sens = MOUSE_SENS_DEFAULT,
     .fps_limit = FPS_DEFAULT,
 };
+
+// Presets describe rendering only: display mode, frame limit and input remain the player's choices.
+static const int preset_upscaler[] = {UPSCALE_SPATIAL, UPSCALE_SPATIAL, UPSCALE_SPATIAL, UPSCALE_OFF};
+static const int preset_quality[] = {UPQ_PERFORMANCE, UPQ_QUALITY, UPQ_ULTRA, UPQ_QUALITY};
+static const int preset_aa[] = {AA_OFF, AA_OFF, AA_SMAA, AA_SMAA};
+
+void settings_apply_graphics_preset(int preset) {
+    if (preset < GRAPHICS_LOW || preset >= GRAPHICS_CUSTOM) return;
+    g_settings.upscaler = preset_upscaler[preset];
+    g_settings.upscale_quality = preset_quality[preset];
+    g_settings.antialias = preset_aa[preset];
+    g_settings.render_scale = 1.0f;
+    g_settings.fsr_sharpness = 0.87f;
+}
+
+int settings_graphics_preset(void) {
+    if (fabsf(g_settings.render_scale - 1.0f) > 0.001f || fabsf(g_settings.fsr_sharpness - 0.87f) > 0.001f)
+        return GRAPHICS_CUSTOM;
+    for (int i = GRAPHICS_LOW; i < GRAPHICS_CUSTOM; i++)
+        if (g_settings.upscaler == preset_upscaler[i] && g_settings.antialias == preset_aa[i] &&
+            (g_settings.upscaler == UPSCALE_OFF || g_settings.upscale_quality == preset_quality[i])) return i;
+    return GRAPHICS_CUSTOM;
+}
 
 // settings_version 2 (2026-10-19): the upscaler's mode, the window size and the 300% mouse default. Older files: their
 // "resolution" (the internal resolution, removed) gives the upscaler's mode, and a mouse sensitivity at the old
@@ -53,7 +78,7 @@ void settings_load(void) {
     while (fgets(line, sizeof line, f)) {
         char key[64];
         char val[128];
-        if (sscanf(line, " %63[^= ] = %127[^\n]", key, val) < 1) continue;
+        if (sscanf(line, " %63[^= ] = %127[^\n]", key, val) != 2) continue;
         if (!strcmp(key, "fullscreen")) g_settings.fullscreen = atoi(val) != 0;
         else if (!strcmp(key, "volume")) g_settings.volume = (float)atof(val);
         else if (!strcmp(key, "reverb")) g_settings.reverb = atoi(val) != 0;
@@ -73,6 +98,14 @@ void settings_load(void) {
             int w = 0, h = 0;
             if (sscanf(val, "%dx%d", &w, &h) == 2 && w >= 320 && h >= 200 && w <= 16384 && h <= 16384)
                 g_settings.window_w = w, g_settings.window_h = h;
+        }
+        else if (!strcmp(key, "render_scale")) {
+            float v = strtof(val, NULL);
+            g_settings.render_scale = isfinite(v) ? fminf(1.5f, fmaxf(0.5f, v / 100.0f)) : 1.0f;
+        }
+        else if (!strcmp(key, "fsr_sharpness")) {
+            float v = strtof(val, NULL);
+            g_settings.fsr_sharpness = isfinite(v) ? fminf(1.0f, fmaxf(0.0f, v / 100.0f)) : 0.87f;
         }
         else if (!strcmp(key, "antialias")) g_settings.antialias = !strcmp(val, "off") ? AA_OFF : AA_SMAA;  // ("fxaa": SMAA now)
         else if (!strcmp(key, "dpad_move")) g_settings.dpad_move = atoi(val) != 0;
@@ -150,6 +183,8 @@ void settings_save(void) {
     int u = g_settings.upscaler, uq = g_settings.upscale_quality;
     fprintf(f, "upscaler = %s\n", u >= 0 && u < UPSCALE_COUNT ? ups[u] : "off");
     fprintf(f, "upscaler_quality = %s\n", k_quality[uq >= 0 && uq < UPQ_COUNT ? uq : UPQ_QUALITY]);
+    fprintf(f, "render_scale = %.0f\n", g_settings.render_scale * 100.0f);
+    fprintf(f, "fsr_sharpness = %.0f\n", g_settings.fsr_sharpness * 100.0f);
     fprintf(f, "antialias = %s\n", g_settings.antialias == AA_SMAA ? "smaa" : "off");
     fprintf(f, "dpad_move = %d\n", g_settings.dpad_move);
     fprintf(f, "mouse_camera = %d\n", g_settings.mouse_camera);

@@ -57,6 +57,8 @@ extern "C" {
 bool gamelib_load(const char *game_dir, char *why, size_t why_size);
 // The tables of the loaded library (NULL before gamelib_load succeeds).
 const GameLibTables *gamelib_tables(void);
+// Whether the loaded main uses the fixed-address 1.8.2 menu/timing hooks.
+bool game_uses_182_hooks(void);
 // True when a library usable with this build is in one of those places (without loading it).
 bool gamelib_present(const char *game_dir);
 
